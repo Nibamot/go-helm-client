@@ -14,6 +14,7 @@ import (
 // Client holds the method signatures for a Helm client.
 // NOTE: This is an interface to allow for mocking in tests.
 type Client interface {
+	SearchChartRepo(entry repo.Entry, name string) error
 	AddOrUpdateChartRepo(entry repo.Entry) error
 	UpdateChartRepos() error
 	InstallOrUpgradeChart(ctx context.Context, spec *ChartSpec, opts *GenericHelmOptions) (*release.Release, error)

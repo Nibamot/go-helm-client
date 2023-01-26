@@ -3,6 +3,7 @@ package helmclient
 import (
 	"bytes"
 	"context"
+
 	"helm.sh/helm/v3/pkg/chartutil"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -74,6 +75,18 @@ func ExampleNewClientFromKubeConf() {
 		panic(err)
 	}
 	_ = helmClient
+}
+func ExampleHelmClient_SearchChartRepo_public(name string) {
+	// Define a public chart repository.
+	chartRepo := repo.Entry{
+		Name: "stable",
+		URL:  "https://charts.helm.sh/stable",
+	}
+
+	// Add a chart-repository to the client.
+	if err := helmClient.SearchChartRepo(chartRepo, name); err != nil {
+		panic(err)
+	}
 }
 
 func ExampleHelmClient_AddOrUpdateChartRepo_public() {
