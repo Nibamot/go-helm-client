@@ -166,6 +166,25 @@ func setEnvSettings(ppOptions **Options, settings *cli.EnvSettings) error {
 	return nil
 }
 
+// SearchChartRepo searches the provided helm chart repository.
+func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string) error {
+
+	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
+	if err != nil {
+		return err
+	}
+
+	chartRepo.CachePath = c.Settings.RepositoryCache
+
+	str, err := chartRepo.DownloadIndexFile()
+	if err == nil {
+		fmt.Println(str)
+		return nil
+	} else {
+		return err
+	}
+}
+
 // AddOrUpdateChartRepo adds or updates the provided helm chart repository.
 func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
