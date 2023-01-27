@@ -84,7 +84,7 @@ func ExampleHelmClient_SearchChartRepo_public(name string) {
 	}
 
 	// Add a chart-repository to the client.
-	if err := helmClient.SearchChartRepo(chartRepo, name); err != nil {
+	if _, err := helmClient.SearchChartRepo(chartRepo, name); err != nil {
 		panic(err)
 	}
 }

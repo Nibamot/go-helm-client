@@ -168,11 +168,11 @@ func setEnvSettings(ppOptions **Options, settings *cli.EnvSettings) error {
 }
 
 // SearchChartRepo searches the provided helm chart repository.
-func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string) error {
+func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string) (string, error) {
 
 	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	chartRepo.CachePath = c.Settings.RepositoryCache
@@ -184,9 +184,9 @@ func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string)
 	fmt.Println(c.storage.Has(searchchartbyname)) //repo name
 	if err == nil {
 		fmt.Println(str)
-		return nil
+		return string(output), nil
 	} else {
-		return err
+		return "Some Error", err
 	}
 }
 
