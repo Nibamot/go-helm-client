@@ -176,6 +176,8 @@ func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string)
 
 	chartRepo.CachePath = c.Settings.RepositoryCache
 	str, err := chartRepo.DownloadIndexFile()
+	fmt.Println(c.storage.Has(searchchartbyname))
+	fmt.Println(c.storage.Repositories)
 	if err == nil {
 		fmt.Println(str)
 		return nil
