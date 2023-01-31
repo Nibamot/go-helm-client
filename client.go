@@ -174,16 +174,28 @@ func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string)
 	if err != nil {
 		return "", err
 	}
-
 	chartRepo.CachePath = c.Settings.RepositoryCache
 	str, err := chartRepo.DownloadIndexFile()
-	fmt.Println("Running "+"/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1|rev")
-	output, _ := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev").Output()
+	output, _ := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
+	if err == nil {
+		return string(output), nil
+	} else {
+		return "Some Error", err
+	}
+}
 
-	fmt.Println(c.storage.Has(searchchartbyname)) //repo name
+// SearchChartRepo searches the provided helm chart repository.
+func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string) (string, error) {
+
+	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
+	if err != nil {
+		return "", err
+	}
+	chartRepo.CachePath = c.Settings.RepositoryCache
+	str, err := chartRepo.DownloadIndexFile()
+	output, _ := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
 
 	if err == nil {
-		fmt.Println(str)
 		return string(output), nil
 	} else {
 		return "Some Error", err
