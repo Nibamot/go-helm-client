@@ -176,9 +176,15 @@ func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string)
 	}
 	chartRepo.CachePath = c.Settings.RepositoryCache
 	str, err := chartRepo.DownloadIndexFile()
-	output, _ := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
+
 	if err == nil {
-		return string(output), nil
+		output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
+		if err == nil {
+			fmt.Println(output)
+			return string(output), nil
+		} else {
+			return "Some Error", err
+		}
 	} else {
 		return "Some Error", err
 	}
