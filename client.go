@@ -9,10 +9,12 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"sort"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/hashicorp/go-version"
 	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -201,8 +203,23 @@ func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string
 	str, err := chartRepo.DownloadIndexFile()
 	output, _ := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
 
+	versionsRaw := strings.Split(string(output), "\n")
+	versions := make([]*version.Version, len(versionsRaw))
+
+	for i, raw := range versionsRaw {
+		v, _ := version.NewVersion(raw)
+		versions[i] = v
+	}
+
+	// After this, the versions are properly sorted
+	sort.Sort(version.Collection(versions))
+	var newSortedVersions []string
+	for i, ver := range versions {
+		newSortedVersions[i] = ver.String()
+		fmt.Println(newSortedVersions[i])
+	}
 	if err == nil {
-		return string(output), nil
+		return string(newSortedVersions[0]), nil
 	} else {
 		return "Some Error", err
 	}
