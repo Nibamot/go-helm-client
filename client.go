@@ -9,12 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"sort"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/hashicorp/go-version"
 	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -180,9 +178,8 @@ func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string)
 	str, err := chartRepo.DownloadIndexFile()
 
 	if err == nil {
-		output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
+		output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
 		if err == nil {
-			fmt.Println(output)
 			return string(output), nil
 		} else {
 			return "Some Error", err
@@ -200,28 +197,15 @@ func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string
 		return "", err
 	}
 	chartRepo.CachePath = c.Settings.RepositoryCache
-	str, err := chartRepo.DownloadIndexFile()
-	output, _ := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
-
-	versionsRaw := strings.Split(string(output), "\n")
-	versions := make([]*version.Version, len(versionsRaw))
-
-	for i, raw := range versionsRaw {
-		v, _ := version.NewVersion(raw)
-		versions[i] = v
-	}
-
-	// After this, the versions are properly sorted
-	sort.Sort(version.Collection(versions))
-	var newSortedVersions []string
-	for i, ver := range versions {
-		newSortedVersions[i] = ver.String()
-		fmt.Println(newSortedVersions[i])
-	}
-	if err == nil {
-		return string(newSortedVersions[0]), nil
+	if str, err := chartRepo.DownloadIndexFile(); err != nil {
+		return "", err
 	} else {
-		return "Some Error", err
+		if output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | grep api | rev |cut -d '/' -f 1| rev | sed -e 's/.tgz*//' -e 's/-"+searchchartbyname+"*//'").Output(); err != nil {
+			return "", err
+		} else {
+			versionsRaw := strings.Split(string(output), "\n")
+			return versionsRaw[0], nil
+		}
 	}
 }
 
