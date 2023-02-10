@@ -200,7 +200,7 @@ func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string
 	if str, err := chartRepo.DownloadIndexFile(); err != nil {
 		return "", err
 	} else {
-		if output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | grep api | rev |cut -d '/' -f 1| rev | sed -e 's/.tgz*//' -e 's/-"+searchchartbyname+"*//'").Output(); err != nil {
+		if output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | grep api | rev |cut -d '/' -f 1| rev | sed -e 's/.tgz*//' -e 's/"+searchchartbyname+"-*//'").Output(); err != nil {
 			return "", err
 		} else {
 			versionsRaw := strings.Split(string(output), "\n")
