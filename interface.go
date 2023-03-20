@@ -15,6 +15,7 @@ import (
 // NOTE: This is an interface to allow for mocking in tests.
 type Client interface {
 	SearchChartRepo(entry repo.Entry, name string) (string, error)
+	ListChartRepo(entry repo.Entry) (string, error)
 	GetLatestVersion(entry repo.Entry, name string) (string, error)
 	AddOrUpdateChartRepo(entry repo.Entry) error
 	UpdateChartRepos() error

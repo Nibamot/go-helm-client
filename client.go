@@ -210,7 +210,7 @@ func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string
 }
 
 // ListCharts lists all the chartts available in the provided helm chart repository. //TO_DO
-func (c *HelmClient) ListChartRepo(entry repo.Entry, searchchartbyname string) (string, error) {
+func (c *HelmClient) ListChartRepo(entry repo.Entry) (string, error) {
 
 	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
 	if err != nil {
@@ -227,7 +227,6 @@ func (c *HelmClient) ListChartRepo(entry repo.Entry, searchchartbyname string) (
 	fmt.Println(string(output))
 	output, _ = exec.Command("/bin/sh", "-c", "ls").Output()
 	fmt.Println(string(output))
-	fmt.Println(c.storage.Has(searchchartbyname)) //repo name
 	if err == nil {
 		fmt.Println(str)
 		return string(output), nil

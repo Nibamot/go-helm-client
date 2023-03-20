@@ -89,6 +89,19 @@ func ExampleHelmClient_SearchChartRepo_public(name string) {
 	}
 }
 
+func ExampleHelmClient_ListChartRepo_public() {
+	// Define a public chart repository.
+	chartRepo := repo.Entry{
+		Name: "stable",
+		URL:  "https://charts.helm.sh/stable",
+	}
+
+	// Add a chart-repository to the client.
+	if _, err := helmClient.ListChartRepo(chartRepo); err != nil {
+		panic(err)
+	}
+}
+
 func ExampleHelmClient_GetLatestVersion_public(name string) {
 	// Define a public chart repository.
 	chartRepo := repo.Entry{
