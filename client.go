@@ -217,8 +217,8 @@ func (c *HelmClient) ListChartRepo(entry repo.Entry) (string, error) {
 		return "", err
 	}
 
-	//chartRepo.CachePath = c.Settings.RepositoryCache
-
+	chartRepo.CachePath = c.Settings.RepositoryCache
+	fmt.Println(chartRepo.CachePath)
 	str := chartRepo.Config.Name + "-charts.txt"
 	fmt.Println("Before cat")
 	fmt.Println("Running /bin/sh -c cat " + str)
