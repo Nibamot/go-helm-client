@@ -178,7 +178,7 @@ func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string)
 	str, err := chartRepo.DownloadIndexFile()
 
 	if err == nil {
-		output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//'").Output()
+		output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//' | sed -E 's/"+searchchartbyname+"-//'").Output()
 		if err == nil {
 			return string(output), nil
 		} else {
