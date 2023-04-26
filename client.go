@@ -176,6 +176,7 @@ func (c *HelmClient) SearchChartRepo(entry repo.Entry, searchchartbyname string)
 	}
 	chartRepo.CachePath = c.Settings.RepositoryCache
 	str, err := chartRepo.DownloadIndexFile()
+	fmt.Println("PORRO " + str)
 
 	if err == nil {
 		output, err := exec.Command("/bin/sh", "-c", "cat "+str+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//' | sed -E 's/"+searchchartbyname+"-//'").Output()
