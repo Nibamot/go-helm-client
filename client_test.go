@@ -76,15 +76,15 @@ func ExampleNewClientFromKubeConf() {
 	}
 	_ = helmClient
 }
-func ExampleHelmClient_SearchChartRepo_public(name string) {
+func ExampleHelmClient_SearchChartRepo_public(name string, path string) {
 	// Define a public chart repository.
-	chartRepo := repo.Entry{
-		Name: "stable",
-		URL:  "https://charts.helm.sh/stable",
-	}
+	// chartRepo := repo.Entry{
+	// 	Name: "stable",
+	// 	URL:  "https://charts.helm.sh/stable",
+	// }
 
 	// Add a chart-repository to the client.
-	if _, err := helmClient.SearchChartRepo(chartRepo, name); err != nil {
+	if _, err := helmClient.SearchChartRepo(name, path); err != nil {
 		panic(err)
 	}
 }
