@@ -107,6 +107,12 @@ type ChartSpec struct {
 	// Namespace where the chart release is deployed.
 	// Note that helmclient.Options.Namespace should ideally match the namespace configured here.
 	Namespace string `json:"namespace"`
+	// GitInstall indicates whether to install from a git repository branch
+	GitInstall bool `json:"gitInstall"`
+	// GitRepositoryURL indicates the url to the repository
+	GitRepositoryURL *string `json:"gitRepositoryUrl"`
+	// GitRepositoryBranch indicates the branch form which to install the component
+	GitRepositoryBranch *string `json:"gitRepositoryBranch"`
 	// ValuesYaml is the values.yaml content.
 	// use string instead of map[string]interface{}
 	// https://github.com/kubernetes-sigs/kubebuilder/issues/528#issuecomment-466449483

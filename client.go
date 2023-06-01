@@ -11,8 +11,12 @@ import (
 	"reflect"
 	"strings"
 
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -870,7 +874,28 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 	return client.Run(spec.ReleaseName)
 }
 
-// func addInstallFromBranchOption
+func AddInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string) error {
+	//func GitPull(destFolder, repoURL, branchName, username, password string) error {
+
+	_, err := git.PlainClone(c.Settings.RepositoryCache, false, &git.CloneOptions{
+		URL:      repoUrl,
+		Progress: os.Stdout,
+		Auth: &http.BasicAuth{
+			Username: username,
+			Password: password,
+		},
+		ReferenceName: plumbing.NewBranchReferenceName(branchName),
+		SingleBranch:  true,
+		RemoteName:    "origin",
+	})
+	if err != nil {
+		fmt.Println("Error cloning repository:", zap.Error(err))
+		return err
+	}
+	return nil
+	//}
+}
+
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	if req := helmChart.Metadata.Dependencies; req != nil {
