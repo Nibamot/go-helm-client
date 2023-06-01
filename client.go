@@ -870,6 +870,7 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 	return client.Run(spec.ReleaseName)
 }
 
+// func addInstallFromBranchOption
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	if req := helmChart.Metadata.Dependencies; req != nil {
