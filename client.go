@@ -1000,6 +1000,10 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 	if err := man.Update(); err != nil {
 		return nil, err
 	}
+	helmChart, _, err := c.GetChart(spec.ChartName, chartPathOptions)
+	if err != nil {
+		return nil, err
+	}
 	fmt.Println(helmChart.Metadata.Name + "<-- returning this chart outer")
 	return helmChart, nil
 }
