@@ -984,6 +984,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		fmt.Println(helmChart.Metadata.Name + "<-- returning this chart")
 		return helmChart, nil
 	}
+	fmt.Println(helmChart.Metadata.Name + "<-- returning this chart outer")
 	return helmChart, nil
 }
 
