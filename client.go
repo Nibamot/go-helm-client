@@ -379,6 +379,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 	if err != nil {
 		return nil, err
 	}
+	output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath).Output()
+	fmt.Println(string(output))
 	fmt.Println("out of recursion!")
 	values, err := spec.GetValuesMap()
 	if err != nil {
