@@ -1009,6 +1009,19 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		fmt.Println(helmChart.Metadata.Name + "<-- returning this chart")
 		return helmChart, nil
 	}
+	fmt.Println("Before helm update")
+	man := &downloader.Manager{
+		ChartPath:        chartPath,
+		Keyring:          chartPathOptions.Keyring,
+		SkipUpdate:       false,
+		Getters:          c.Providers,
+		RepositoryConfig: c.Settings.RepositoryConfig,
+		RepositoryCache:  c.Settings.RepositoryCache,
+		Out:              c.output,
+	}
+	if err := man.Update(); err != nil {
+		return nil, err
+	}
 	fmt.Println(helmChart.Metadata.Name + "<-- returning this chart outer")
 	return helmChart, nil
 }
