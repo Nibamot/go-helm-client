@@ -338,7 +338,12 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *GenericHelmOptions) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
-
+	// //check if install from a specific branch is enabled
+	// if spec.GitInstall {
+	// 	if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
+	// 		addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, "", "") //c *HelmClient, repoUrl string, branchName string, username string, password string
+	// 	}
+	// }
 	// NameAndChart returns either the TemplateName if set,
 	// the ReleaseName if set or the generatedName as the first return value.
 	releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
@@ -874,7 +879,7 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 	return client.Run(spec.ReleaseName)
 }
 
-func AddInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string) error {
+func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string) error {
 	//func GitPull(destFolder, repoURL, branchName, username, password string) error {
 
 	_, err := git.PlainClone(c.Settings.RepositoryCache, false, &git.CloneOptions{
@@ -898,6 +903,8 @@ func AddInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
+	fmt.Println("printing helmchart dependencies")
+	fmt.Println(helmChart.Metadata.Dependencies)
 	if req := helmChart.Metadata.Dependencies; req != nil {
 		if err := action.CheckDependencies(helmChart, req); err != nil {
 			if dependencyUpdate {
