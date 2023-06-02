@@ -947,7 +947,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		var dependency []*chart.Dependency
 		// an array of chart dependencies. Check them in order one by one
 		if req := helmChart.Metadata.Dependencies; req != nil {
-			fmt.Println(req)
+			// fmt.Println(req)
 			for _, dep := range req {
 				dependency = append(dependency, dep)
 				fmt.Println(dep.Name + " next getting chart for " + dep.Name)
@@ -981,6 +981,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 			}
 		}
 	} else {
+		fmt.Println(helmChart.Metadata.Name + "<-- returning this chart")
 		return helmChart, nil
 	}
 	return helmChart, nil
