@@ -374,8 +374,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			helmChart.Metadata.Type,
 		)
 	}
-
-	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+	fmt.Println("Before updating dependencies!")
+	helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 	if err != nil {
 		return nil, err
 	}
