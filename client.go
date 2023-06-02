@@ -905,6 +905,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	fmt.Println("printing helmchart dependencies")
 	fmt.Println(helmChart.Metadata.Dependencies[0].Name)
+	fmt.Println("printing path of chart " + chartPath)
 	if req := helmChart.Metadata.Dependencies; req != nil {
 		fmt.Println(req)
 		if err := action.CheckDependencies(helmChart, req); err != nil {
