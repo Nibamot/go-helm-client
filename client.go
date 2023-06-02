@@ -904,8 +904,9 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	fmt.Println("printing helmchart dependencies")
-	fmt.Println(&helmChart.Metadata.Dependencies)
+	fmt.Println(helmChart.Metadata)
 	if req := helmChart.Metadata.Dependencies; req != nil {
+		fmt.Println(req)
 		if err := action.CheckDependencies(helmChart, req); err != nil {
 			if dependencyUpdate {
 				man := &downloader.Manager{
