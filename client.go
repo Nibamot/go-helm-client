@@ -978,6 +978,31 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 					}
 				}
 				dependency = nil
+
+			}
+			if err := action.CheckDependencies(helmChart, dependency); err != nil {
+				if dependencyUpdate {
+					man := &downloader.Manager{
+						ChartPath:        chartPath,
+						Keyring:          chartPathOptions.Keyring,
+						SkipUpdate:       false,
+						Getters:          c.Providers,
+						RepositoryConfig: c.Settings.RepositoryConfig,
+						RepositoryCache:  c.Settings.RepositoryCache,
+						Out:              c.output,
+					}
+					if err := man.Update(); err != nil {
+						return nil, err
+					}
+
+					helmChart, _, err = c.GetChart(spec.ChartName, chartPathOptions)
+					if err != nil {
+						return nil, err
+					}
+
+				} else {
+					return nil, err
+				}
 			}
 		}
 	} else {
