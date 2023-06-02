@@ -1007,7 +1007,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		}
 	} else {
 		fmt.Println(helmChart.Metadata.Name + "<-- returning this chart")
-		return helmChart, nil
+		//return helmChart, nil
 	}
 	fmt.Println("Before helm update")
 	man := &downloader.Manager{
