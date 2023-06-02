@@ -981,7 +981,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 			}
 		}
 	} else {
-		return nil, nil
+		return helmChart, nil
 	}
 	return helmChart, nil
 }
