@@ -949,7 +949,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		for _, dep := range req {
 			dependency = append(dependency, dep)
 			fmt.Println(dep.Name + " next getting chart for " + dep.Name)
-			helmc, _, _ := c.GetChart(dep.Name, chartPathOptions)
+			helmc, _, _ := c.GetChart(strings.ReplaceAll(chartPath, helmChart.Metadata.Name, "")+dep.Name, chartPathOptions)
 			updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name), c, dependencyUpdate, spec)
 			if err := action.CheckDependencies(helmc, dependency); err != nil {
 				if dependencyUpdate {
