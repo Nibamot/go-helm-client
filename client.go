@@ -375,7 +375,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		)
 	}
 
-	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+	helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -903,11 +903,11 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
-	fmt.Println("printing helmchart dependencies")
-	fmt.Println(helmChart.Metadata.Dependencies[0].Name)
-	fmt.Println("printing path of chart " + chartPath)
+	// fmt.Println("printing helmchart dependencies")
+	// fmt.Println(helmChart.Metadata.Dependencies[0].Name)
+	// fmt.Println("printing path of chart " + chartPath)
 	if req := helmChart.Metadata.Dependencies; req != nil {
-		fmt.Println(req)
+		// fmt.Println(req)
 		if err := action.CheckDependencies(helmChart, req); err != nil {
 			if dependencyUpdate {
 				man := &downloader.Manager{
@@ -931,6 +931,50 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 			} else {
 				return nil, err
 			}
+		}
+	}
+	return helmChart, nil
+}
+
+// recursive updateDependencies
+// updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
+func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
+	fmt.Println("printing helmchart dependencies")
+	fmt.Println(helmChart.Metadata.Dependencies[0].Name)
+	fmt.Println("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
+	var dependency []*chart.Dependency
+	// an array of chart dependencies. Check them in order one by one
+	if req := helmChart.Metadata.Dependencies; req != nil {
+		fmt.Println(req)
+		for _, dep := range req {
+			dependency = append(dependency, dep)
+			helmc, _, _ := c.GetChart(dep.Name, chartPathOptions)
+			updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name), c, dependencyUpdate, spec)
+			if err := action.CheckDependencies(helmc, dependency); err != nil {
+				if dependencyUpdate {
+					man := &downloader.Manager{
+						ChartPath:        strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name),
+						Keyring:          chartPathOptions.Keyring,
+						SkipUpdate:       false,
+						Getters:          c.Providers,
+						RepositoryConfig: c.Settings.RepositoryConfig,
+						RepositoryCache:  c.Settings.RepositoryCache,
+						Out:              c.output,
+					}
+					if err := man.Update(); err != nil {
+						return nil, err
+					}
+
+					helmChart, _, err = c.GetChart(spec.ChartName, chartPathOptions)
+					if err != nil {
+						return nil, err
+					}
+
+				} else {
+					return nil, err
+				}
+			}
+			dependency = nil
 		}
 	}
 	return helmChart, nil
