@@ -339,11 +339,13 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
 	// //check if install from a specific branch is enabled
-	// if spec.GitInstall {
-	// 	if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
-	// 		addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, "", "") //c *HelmClient, repoUrl string, branchName string, username string, password string
-	// 	}
-	// }
+	if spec.GitInstall {
+		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, client.Username, client.Password)
+		}
+	} else {
+
+	}
 	// NameAndChart returns either the TemplateName if set,
 	// the ReleaseName if set or the generatedName as the first return value.
 	releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
@@ -375,13 +377,14 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		)
 	}
 	fmt.Println("Before updating dependencies!")
+	// in case the charts have recursive dependencies
 	helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 	if err != nil {
 		return nil, err
 	}
-	output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
-	fmt.Println(string(output))
-	fmt.Println("out of recursion!")
+	//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
+	//fmt.Println(string(output))
+	//fmt.Println("out of recursion!")
 	values, err := spec.GetValuesMap()
 	if err != nil {
 		return nil, err
@@ -900,7 +903,6 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		return err
 	}
 	return nil
-	//}
 }
 
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
@@ -943,16 +945,16 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	fmt.Println("printing helmchart dependencies")
 	if len(helmChart.Metadata.Dependencies) > 0 {
-		fmt.Println(helmChart.Metadata.Dependencies[0].Name)
+		// fmt.Println(helmChart.Metadata.Dependencies[0].Name)
 
-		fmt.Println("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
+		// fmt.Println("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
 		var dependency []*chart.Dependency
 		// an array of chart dependencies. Check them in order one by one
 		if req := helmChart.Metadata.Dependencies; req != nil {
 			// fmt.Println(req)
 			for _, dep := range req {
 				dependency = append(dependency, dep)
-				fmt.Println(dep.Name + " next getting chart for " + dep.Name)
+				// fmt.Println(dep.Name + " next getting chart for " + dep.Name)
 				helmc, _, _ := c.GetChart(strings.ReplaceAll(chartPath, helmChart.Metadata.Name, "")+dep.Name, chartPathOptions)
 				updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name), c, dependencyUpdate, spec)
 				if err := action.CheckDependencies(helmc, dependency); err != nil {
@@ -980,11 +982,10 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 					}
 				}
 				dependency = nil
-
 			}
 		}
 	} else {
-		fmt.Println(helmChart.Metadata.Name + "<-- returning this chart")
+		// fmt.Println(helmChart.Metadata.Name + "<-- returning this chart")
 		//return helmChart, nil
 	}
 	fmt.Println("Before helm update")
@@ -1004,7 +1005,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(helmChart.Metadata.Name + "<-- returning this chart outer")
+	// fmt.Println(helmChart.Metadata.Name + "<-- returning this chart outer")
 	return helmChart, nil
 }
 
