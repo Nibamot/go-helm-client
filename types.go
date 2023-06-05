@@ -113,6 +113,10 @@ type ChartSpec struct {
 	GitRepositoryURL *string `json:"gitRepositoryUrl"`
 	// GitRepositoryBranch indicates the branch form which to install the component
 	GitRepositoryBranch *string `json:"gitRepositoryBranch"`
+	// GitRepositoryUserName indicates the username which to install the component
+	GitRepositoryUserName *string `json:"gitRepositoryUserName"`
+	// GitRepositoryPassword indicates the password for the branch which to install the component
+	GitRepositoryPassword *string `json:"gitRepositoryPassword"`
 	// ValuesYaml is the values.yaml content.
 	// use string instead of map[string]interface{}
 	// https://github.com/kubernetes-sigs/kubebuilder/issues/528#issuecomment-466449483
