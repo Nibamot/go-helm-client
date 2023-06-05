@@ -348,7 +348,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
 			fmt.Println(" Going to clone from a specific branch")
 			fmt.Println(" Username: " + *spec.GitRepositoryUserName)
-			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, client.Username, client.Password)
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword)
 		}
 	} else {
 
