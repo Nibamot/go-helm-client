@@ -338,6 +338,7 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *GenericHelmOptions) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
+	fmt.Println(" in install function! ")
 	// //check if install from a specific branch is enabled
 	if spec.GitInstall {
 
