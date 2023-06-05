@@ -339,15 +339,15 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *GenericHelmOptions) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
-	fmt.Println(" in install function! " + strconv.FormatBool(spec.GitInstall))
+	c.DebugLog(" in install function! " + strconv.FormatBool(spec.GitInstall))
 
 	// //check if install from a specific branch is enabled
 	if spec.GitInstall {
 		// output, _ := exec.Command("/bin/sh", "-c", "ls "+"/charts/").Output()
-		fmt.Println("in  the first if!")
+		c.DebugLog("in  the first if!")
 		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
-			fmt.Println(" Going to clone from a specific branch")
-			fmt.Println(" Username: " + *spec.GitRepositoryUserName)
+			c.DebugLog(" Going to clone from a specific branch")
+			c.DebugLog(" Username: " + *spec.GitRepositoryUserName)
 			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword, spec.ChartRepo)
 			// NameAndChart returns either the TemplateName if set,
 			// the ReleaseName if set or the generatedName as the first return value.
@@ -366,13 +366,13 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 					client.PostRenderer = opts.PostRenderer
 				}
 			}
-			fmt.Println("Before get chart")
+			c.DebugLog("Before get chart")
 			helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
 			if err != nil {
 				fmt.Errorf(string(err.Error()))
 				return nil, err
 			}
-			fmt.Println("After get chart")
+			c.DebugLog("After get chart")
 			if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
 				return nil, fmt.Errorf(
 					"chart %q has an unsupported type and is not installable: %q",
@@ -380,15 +380,15 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 					helmChart.Metadata.Type,
 				)
 			}
-			fmt.Println("Before updating dependencies!")
+			c.DebugLog("Before updating dependencies!")
 			// in case the charts have recursive dependencies
 			helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 			if err != nil {
 				return nil, err
 			}
 			//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
-			//fmt.Println(string(output))
-			//fmt.Println("out of recursion!")
+			//c.DebugLog(string(output))
+			//c.DebugLog("out of recursion!")
 			values, err := spec.GetValuesMap()
 			if err != nil {
 				return nil, err
@@ -410,7 +410,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/").Output()
 			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
-			fmt.Println(string(output))
+			c.DebugLog(string(output))
 			return rel, nil
 		}
 	} else {
@@ -431,13 +431,13 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 				client.PostRenderer = opts.PostRenderer
 			}
 		}
-		fmt.Println("Before get chart")
+		c.DebugLog("Before get chart")
 		helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
 		if err != nil {
 			fmt.Errorf(string(err.Error()))
 			return nil, err
 		}
-		fmt.Println("After get chart")
+		c.DebugLog("After get chart")
 		if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
 			return nil, fmt.Errorf(
 				"chart %q has an unsupported type and is not installable: %q",
@@ -445,15 +445,15 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 				helmChart.Metadata.Type,
 			)
 		}
-		fmt.Println("Before updating dependencies!")
+		c.DebugLog("Before updating dependencies!")
 		// in case the charts have recursive dependencies
 		helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 		if err != nil {
 			return nil, err
 		}
 		//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
-		//fmt.Println(string(output))
-		//fmt.Println("out of recursion!")
+		//c.DebugLog(string(output))
+		//c.DebugLog("out of recursion!")
 		values, err := spec.GetValuesMap()
 		if err != nil {
 			return nil, err
@@ -492,13 +492,13 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 	// 		client.PostRenderer = opts.PostRenderer
 	// 	}
 	// }
-	// fmt.Println("Before get chart")
+	// c.DebugLog("Before get chart")
 	// helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
 	// if err != nil {
 	// 	fmt.Errorf(string(err.Error()))
 	// 	return nil, err
 	// }
-	// fmt.Println("After get chart")
+	// c.DebugLog("After get chart")
 	// if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
 	// 	return nil, fmt.Errorf(
 	// 		"chart %q has an unsupported type and is not installable: %q",
@@ -506,15 +506,15 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 	// 		helmChart.Metadata.Type,
 	// 	)
 	// }
-	// fmt.Println("Before updating dependencies!")
+	// c.DebugLog("Before updating dependencies!")
 	// // in case the charts have recursive dependencies
 	// helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 	// if err != nil {
 	// 	return nil, err
 	// }
 	// //output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
-	// //fmt.Println(string(output))
-	// //fmt.Println("out of recursion!")
+	// //c.DebugLog(string(output))
+	// //c.DebugLog("out of recursion!")
 	// values, err := spec.GetValuesMap()
 	// if err != nil {
 	// 	return nil, err
@@ -535,7 +535,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 	// c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
 
 	// return rel, nil
-	fmt.Println(" Returning Nothing!")
+	c.DebugLog(" Returning Nothing!")
 	return nil, nil
 }
 
@@ -1031,13 +1031,13 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		RemoteName:    "origin",
 	})
 	if err != nil {
-		fmt.Println("Error cloning repository:", zap.Error(err))
+		c.DebugLog("Error cloning repository:", zap.Error(err))
 		return err
 	}
-	fmt.Println("Adding Chart Repo")
+	c.DebugLog("Adding Chart Repo")
 	err = c.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
-		fmt.Println("Error in adding chart repo:", zap.Error(err))
+		c.DebugLog("Error in adding chart repo:", zap.Error(err))
 		return err
 	}
 	return nil
@@ -1045,11 +1045,11 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
-	// fmt.Println("printing helmchart dependencies")
-	// fmt.Println(helmChart.Metadata.Dependencies[0].Name)
-	// fmt.Println("printing path of chart " + chartPath)
+	// c.DebugLog("printing helmchart dependencies")
+	// c.DebugLog(helmChart.Metadata.Dependencies[0].Name)
+	// c.DebugLog("printing path of chart " + chartPath)
 	if req := helmChart.Metadata.Dependencies; req != nil {
-		// fmt.Println(req)
+		// c.DebugLog(req)
 		if err := action.CheckDependencies(helmChart, req); err != nil {
 			if dependencyUpdate {
 				man := &downloader.Manager{
@@ -1081,18 +1081,18 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 // recursive updateDependencies
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
-	fmt.Println("printing helmchart dependencies")
+	c.DebugLog("printing helmchart dependencies")
 	if len(helmChart.Metadata.Dependencies) > 0 {
-		// fmt.Println(helmChart.Metadata.Dependencies[0].Name)
+		// c.DebugLog(helmChart.Metadata.Dependencies[0].Name)
 
-		// fmt.Println("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
+		// c.DebugLog("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
 		var dependency []*chart.Dependency
 		// an array of chart dependencies. Check them in order one by one
 		if req := helmChart.Metadata.Dependencies; req != nil {
-			// fmt.Println(req)
+			// c.DebugLog(req)
 			for _, dep := range req {
 				dependency = append(dependency, dep)
-				// fmt.Println(dep.Name + " next getting chart for " + dep.Name)
+				// c.DebugLog(dep.Name + " next getting chart for " + dep.Name)
 				helmc, _, _ := c.GetChart(strings.ReplaceAll(chartPath, helmChart.Metadata.Name, "")+dep.Name, chartPathOptions)
 				updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name), c, dependencyUpdate, spec)
 				if err := action.CheckDependencies(helmc, dependency); err != nil {
@@ -1123,10 +1123,10 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 			}
 		}
 	} else {
-		// fmt.Println(helmChart.Metadata.Name + "<-- returning this chart")
+		// c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart")
 		//return helmChart, nil
 	}
-	fmt.Println("Before helm update")
+	c.DebugLog("Before helm update")
 	man := &downloader.Manager{
 		ChartPath:        chartPath,
 		Keyring:          chartPathOptions.Keyring,
@@ -1143,7 +1143,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Println(helmChart.Metadata.Name + "<-- returning this chart outer")
+	// c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart outer")
 	return helmChart, nil
 }
 
