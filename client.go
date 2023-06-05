@@ -1034,7 +1034,12 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		fmt.Println("Error cloning repository:", zap.Error(err))
 		return err
 	}
-	c.AddOrUpdateChartRepo(chartRepo)
+	fmt.Println("Adding Chart Repo")
+	err = c.AddOrUpdateChartRepo(chartRepo)
+	if err != nil {
+		fmt.Println("Error in adding chart repo:", zap.Error(err))
+		return err
+	}
 	return nil
 }
 
