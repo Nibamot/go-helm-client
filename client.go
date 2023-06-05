@@ -349,70 +349,191 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			fmt.Println(" Going to clone from a specific branch")
 			fmt.Println(" Username: " + *spec.GitRepositoryUserName)
 			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword)
+			// NameAndChart returns either the TemplateName if set,
+			// the ReleaseName if set or the generatedName as the first return value.
+			releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
+			if err != nil {
+				return nil, err
+			}
+			client.ReleaseName = releaseName
+
+			if client.Version == "" {
+				client.Version = ">0.0.0-0"
+			}
+
+			if opts != nil {
+				if opts.PostRenderer != nil {
+					client.PostRenderer = opts.PostRenderer
+				}
+			}
+			fmt.Println("Before get chart")
+			helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+			if err != nil {
+				fmt.Errorf(string(err.Error()))
+				return nil, err
+			}
+			fmt.Println("After get chart")
+			if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+				return nil, fmt.Errorf(
+					"chart %q has an unsupported type and is not installable: %q",
+					helmChart.Metadata.Name,
+					helmChart.Metadata.Type,
+				)
+			}
+			fmt.Println("Before updating dependencies!")
+			// in case the charts have recursive dependencies
+			helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+			if err != nil {
+				return nil, err
+			}
+			//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
+			//fmt.Println(string(output))
+			//fmt.Println("out of recursion!")
+			values, err := spec.GetValuesMap()
+			if err != nil {
+				return nil, err
+			}
+
+			if c.linting {
+				err = c.lint(chartPath, values)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			rel, err := client.RunWithContext(ctx, helmChart, values)
+			if err != nil {
+				return rel, err
+			}
+
+			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+
+			return rel, nil
 		}
 	} else {
-
-	}
-	// NameAndChart returns either the TemplateName if set,
-	// the ReleaseName if set or the generatedName as the first return value.
-	releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
-	if err != nil {
-		return nil, err
-	}
-	client.ReleaseName = releaseName
-
-	if client.Version == "" {
-		client.Version = ">0.0.0-0"
-	}
-
-	if opts != nil {
-		if opts.PostRenderer != nil {
-			client.PostRenderer = opts.PostRenderer
-		}
-	}
-	fmt.Println("Before get chart")
-	helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
-	if err != nil {
-		fmt.Errorf(string(err.Error()))
-		return nil, err
-	}
-	fmt.Println("After get chart")
-	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
-		return nil, fmt.Errorf(
-			"chart %q has an unsupported type and is not installable: %q",
-			helmChart.Metadata.Name,
-			helmChart.Metadata.Type,
-		)
-	}
-	fmt.Println("Before updating dependencies!")
-	// in case the charts have recursive dependencies
-	helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
-	if err != nil {
-		return nil, err
-	}
-	//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
-	//fmt.Println(string(output))
-	//fmt.Println("out of recursion!")
-	values, err := spec.GetValuesMap()
-	if err != nil {
-		return nil, err
-	}
-
-	if c.linting {
-		err = c.lint(chartPath, values)
+		// NameAndChart returns either the TemplateName if set,
+		// the ReleaseName if set or the generatedName as the first return value.
+		releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
 		if err != nil {
 			return nil, err
 		}
+		client.ReleaseName = releaseName
+
+		if client.Version == "" {
+			client.Version = ">0.0.0-0"
+		}
+
+		if opts != nil {
+			if opts.PostRenderer != nil {
+				client.PostRenderer = opts.PostRenderer
+			}
+		}
+		fmt.Println("Before get chart")
+		helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+		if err != nil {
+			fmt.Errorf(string(err.Error()))
+			return nil, err
+		}
+		fmt.Println("After get chart")
+		if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+			return nil, fmt.Errorf(
+				"chart %q has an unsupported type and is not installable: %q",
+				helmChart.Metadata.Name,
+				helmChart.Metadata.Type,
+			)
+		}
+		fmt.Println("Before updating dependencies!")
+		// in case the charts have recursive dependencies
+		helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+		if err != nil {
+			return nil, err
+		}
+		//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
+		//fmt.Println(string(output))
+		//fmt.Println("out of recursion!")
+		values, err := spec.GetValuesMap()
+		if err != nil {
+			return nil, err
+		}
+
+		if c.linting {
+			err = c.lint(chartPath, values)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		rel, err := client.RunWithContext(ctx, helmChart, values)
+		if err != nil {
+			return rel, err
+		}
+
+		c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+
+		return rel, nil
 	}
+	// // NameAndChart returns either the TemplateName if set,
+	// // the ReleaseName if set or the generatedName as the first return value.
+	// releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// client.ReleaseName = releaseName
 
-	rel, err := client.RunWithContext(ctx, helmChart, values)
-	if err != nil {
-		return rel, err
-	}
+	// if client.Version == "" {
+	// 	client.Version = ">0.0.0-0"
+	// }
 
-	c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+	// if opts != nil {
+	// 	if opts.PostRenderer != nil {
+	// 		client.PostRenderer = opts.PostRenderer
+	// 	}
+	// }
+	// fmt.Println("Before get chart")
+	// helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+	// if err != nil {
+	// 	fmt.Errorf(string(err.Error()))
+	// 	return nil, err
+	// }
+	// fmt.Println("After get chart")
+	// if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+	// 	return nil, fmt.Errorf(
+	// 		"chart %q has an unsupported type and is not installable: %q",
+	// 		helmChart.Metadata.Name,
+	// 		helmChart.Metadata.Type,
+	// 	)
+	// }
+	// fmt.Println("Before updating dependencies!")
+	// // in case the charts have recursive dependencies
+	// helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// //output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
+	// //fmt.Println(string(output))
+	// //fmt.Println("out of recursion!")
+	// values, err := spec.GetValuesMap()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return rel, nil
+	// if c.linting {
+	// 	err = c.lint(chartPath, values)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	// rel, err := client.RunWithContext(ctx, helmChart, values)
+	// if err != nil {
+	// 	return rel, err
+	// }
+
+	// c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+
+	// return rel, nil
+	fmt.Println(" Returning Nothing!")
+	return nil, nil
 }
 
 // upgrade upgrades a chart and CRDs.
