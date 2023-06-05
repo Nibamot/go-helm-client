@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -338,7 +339,7 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *GenericHelmOptions) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
-	fmt.Println(" in install function! ")
+	fmt.Println(" in install function! " + strconv.FormatBool(spec.GitInstall))
 
 	// //check if install from a specific branch is enabled
 	if spec.GitInstall {
