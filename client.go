@@ -376,7 +376,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		fmt.Errorf(string(err.Error()))
 		return nil, err
 	}
-
+	fmt.Println("After get chart")
 	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
 		return nil, fmt.Errorf(
 			"chart %q has an unsupported type and is not installable: %q",
