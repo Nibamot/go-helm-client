@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -339,7 +338,7 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *GenericHelmOptions) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
-	c.DebugLog(" in install function! " + strconv.FormatBool(spec.GitInstall))
+	// c.DebugLog(" in install function! " + strconv.FormatBool(spec.GitInstall))
 
 	// //check if install from a specific branch is enabled
 	if spec.GitInstall {
@@ -369,7 +368,6 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			c.DebugLog("Before get chart")
 			helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
 			if err != nil {
-				fmt.Errorf(string(err.Error()))
 				return nil, err
 			}
 			c.DebugLog("After get chart")
@@ -386,9 +384,6 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			if err != nil {
 				return nil, err
 			}
-			//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
-			//c.DebugLog(string(output))
-			//c.DebugLog("out of recursion!")
 			values, err := spec.GetValuesMap()
 			if err != nil {
 				return nil, err
@@ -412,6 +407,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			c.DebugLog(string(output))
 			return rel, nil
+		} else if spec.GitRepositoryBranch == nil && spec.GitRepositoryURL == nil {
+			c.DebugLog("Please specify a git repository and its branch")
 		}
 	} else {
 		// NameAndChart returns either the TemplateName if set,
@@ -434,7 +431,6 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		c.DebugLog("Before get chart")
 		helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
 		if err != nil {
-			fmt.Errorf(string(err.Error()))
 			return nil, err
 		}
 		c.DebugLog("After get chart")
@@ -475,66 +471,6 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 
 		return rel, nil
 	}
-	// // NameAndChart returns either the TemplateName if set,
-	// // the ReleaseName if set or the generatedName as the first return value.
-	// releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// client.ReleaseName = releaseName
-
-	// if client.Version == "" {
-	// 	client.Version = ">0.0.0-0"
-	// }
-
-	// if opts != nil {
-	// 	if opts.PostRenderer != nil {
-	// 		client.PostRenderer = opts.PostRenderer
-	// 	}
-	// }
-	// c.DebugLog("Before get chart")
-	// helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
-	// if err != nil {
-	// 	fmt.Errorf(string(err.Error()))
-	// 	return nil, err
-	// }
-	// c.DebugLog("After get chart")
-	// if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
-	// 	return nil, fmt.Errorf(
-	// 		"chart %q has an unsupported type and is not installable: %q",
-	// 		helmChart.Metadata.Name,
-	// 		helmChart.Metadata.Type,
-	// 	)
-	// }
-	// c.DebugLog("Before updating dependencies!")
-	// // in case the charts have recursive dependencies
-	// helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// //output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
-	// //c.DebugLog(string(output))
-	// //c.DebugLog("out of recursion!")
-	// values, err := spec.GetValuesMap()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// if c.linting {
-	// 	err = c.lint(chartPath, values)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
-	// rel, err := client.RunWithContext(ctx, helmChart, values)
-	// if err != nil {
-	// 	return rel, err
-	// }
-
-	// c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
-
-	// return rel, nil
 	c.DebugLog(" Returning Nothing!")
 	return nil, nil
 }
@@ -545,65 +481,138 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 	client := action.NewUpgrade(c.ActionConfig)
 	mergeUpgradeOptions(spec, client)
 	client.Install = true
+	// check if upgrade is from the branch and if gitinstall is set
+	if spec.GitInstall {
+		c.DebugLog("in  the first if!")
+		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
+			c.DebugLog(" Going to clone from a specific branch")
+			c.DebugLog(" Username: " + *spec.GitRepositoryUserName)
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword, spec.ChartRepo)
+			if client.Version == "" {
+				client.Version = ">0.0.0-0"
+			}
 
-	if client.Version == "" {
-		client.Version = ">0.0.0-0"
-	}
+			if opts != nil {
+				if opts.PostRenderer != nil {
+					client.PostRenderer = opts.PostRenderer
+				}
+			}
 
-	if opts != nil {
-		if opts.PostRenderer != nil {
-			client.PostRenderer = opts.PostRenderer
+			helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+			if err != nil {
+				return nil, err
+			}
+
+			helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+			if err != nil {
+				return nil, err
+			}
+
+			values, err := spec.GetValuesMap()
+			if err != nil {
+				return nil, err
+			}
+
+			if c.linting {
+				err = c.lint(chartPath, values)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			if !spec.SkipCRDs && spec.UpgradeCRDs {
+				c.DebugLog("upgrading crds")
+				err = c.upgradeCRDs(ctx, helmChart)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+			if upgradeErr != nil {
+				resultErr := upgradeErr
+				if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
+					rollbackErr := opts.RollBack.RollbackRelease(spec)
+					if rollbackErr != nil {
+						resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
+					} else {
+						resultErr = fmt.Errorf("release failed, rollback succeeded: release error: %w", upgradeErr)
+					}
+				}
+				c.DebugLog("release upgrade failed: %s", resultErr)
+				return nil, resultErr
+			}
+
+			c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/").Output()
+			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
+			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+			c.DebugLog(string(output))
+			return upgradedRelease, nil
+		} else if spec.GitRepositoryBranch == nil && spec.GitRepositoryURL == nil {
+			c.DebugLog("Please specify a git repository and its branch")
 		}
-	}
-
-	helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
-	if err != nil {
-		return nil, err
-	}
-
-	values, err := spec.GetValuesMap()
-	if err != nil {
-		return nil, err
-	}
-
-	if c.linting {
-		err = c.lint(chartPath, values)
-		if err != nil {
-			return nil, err
+	} else {
+		if client.Version == "" {
+			client.Version = ">0.0.0-0"
 		}
-	}
 
-	if !spec.SkipCRDs && spec.UpgradeCRDs {
-		c.DebugLog("upgrading crds")
-		err = c.upgradeCRDs(ctx, helmChart)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
-	if upgradeErr != nil {
-		resultErr := upgradeErr
-		if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
-			rollbackErr := opts.RollBack.RollbackRelease(spec)
-			if rollbackErr != nil {
-				resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
-			} else {
-				resultErr = fmt.Errorf("release failed, rollback succeeded: release error: %w", upgradeErr)
+		if opts != nil {
+			if opts.PostRenderer != nil {
+				client.PostRenderer = opts.PostRenderer
 			}
 		}
-		c.DebugLog("release upgrade failed: %s", resultErr)
-		return nil, resultErr
+
+		helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+		if err != nil {
+			return nil, err
+		}
+
+		values, err := spec.GetValuesMap()
+		if err != nil {
+			return nil, err
+		}
+
+		if c.linting {
+			err = c.lint(chartPath, values)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if !spec.SkipCRDs && spec.UpgradeCRDs {
+			c.DebugLog("upgrading crds")
+			err = c.upgradeCRDs(ctx, helmChart)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+		if upgradeErr != nil {
+			resultErr := upgradeErr
+			if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
+				rollbackErr := opts.RollBack.RollbackRelease(spec)
+				if rollbackErr != nil {
+					resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
+				} else {
+					resultErr = fmt.Errorf("release failed, rollback succeeded: release error: %w", upgradeErr)
+				}
+			}
+			c.DebugLog("release upgrade failed: %s", resultErr)
+			return nil, resultErr
+		}
+
+		c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
+
+		return upgradedRelease, nil
 	}
-
-	c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
-
-	return upgradedRelease, nil
+	return nil, nil
 }
 
 // uninstallRelease uninstalls the provided release.
