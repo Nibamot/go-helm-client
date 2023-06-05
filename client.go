@@ -370,9 +370,10 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			client.PostRenderer = opts.PostRenderer
 		}
 	}
-
+	fmt.Println("Before get chart")
 	helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
 	if err != nil {
+		fmt.Errorf(string(err.Error()))
 		return nil, err
 	}
 
