@@ -407,8 +407,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 
 			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
-			// output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath).Output()
-			fmt.Println(chartPath + " is chartchartPath")
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*").Output()
+			fmt.Println(string(output))
 			return rel, nil
 		}
 	} else {
