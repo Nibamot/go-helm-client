@@ -348,7 +348,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
 			fmt.Println(" Going to clone from a specific branch")
 			fmt.Println(" Username: " + *spec.GitRepositoryUserName)
-			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword)
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword, spec.ChartRepo)
 			// NameAndChart returns either the TemplateName if set,
 			// the ReleaseName if set or the generatedName as the first return value.
 			releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
@@ -447,7 +447,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		}
 		fmt.Println("Before updating dependencies!")
 		// in case the charts have recursive dependencies
-		helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+		helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 		if err != nil {
 			return nil, err
 		}
@@ -1016,7 +1016,7 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 	return client.Run(spec.ReleaseName)
 }
 
-func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string) error {
+func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
 	//func GitPull(destFolder, repoURL, branchName, username, password string) error {
 
 	_, err := git.PlainClone(c.Settings.RepositoryCache, false, &git.CloneOptions{
@@ -1034,6 +1034,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		fmt.Println("Error cloning repository:", zap.Error(err))
 		return err
 	}
+	c.AddOrUpdateChartRepo(chartRepo)
 	return nil
 }
 

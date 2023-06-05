@@ -117,6 +117,8 @@ type ChartSpec struct {
 	GitRepositoryUserName *string `json:"gitRepositoryUserName"`
 	// GitRepositoryPassword indicates the password for the branch which to install the component
 	GitRepositoryPassword *string `json:"gitRepositoryPassword"`
+	// ChartRepo to add repo as soon as the git clone is done
+	ChartRepo repo.Entry `json:"chartRepo"`
 	// ValuesYaml is the values.yaml content.
 	// use string instead of map[string]interface{}
 	// https://github.com/kubernetes-sigs/kubebuilder/issues/528#issuecomment-466449483
