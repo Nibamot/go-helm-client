@@ -1028,8 +1028,8 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 
 func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
 	//func GitPull(destFolder, repoURL, branchName, username, password string) error {
-	c.Settings.RepositoryCache = c.Settings.RepositoryCache + "/charts/"
-	_, err := git.PlainClone(c.Settings.RepositoryCache, false, &git.CloneOptions{
+
+	_, err := git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
 		URL:      repoUrl,
 		Progress: os.Stdout,
 		Auth: &http.BasicAuth{
@@ -1045,7 +1045,9 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		return err
 	}
 	c.DebugLog("Adding Chart Repo")
+	c.Settings.RepositoryCache = c.Settings.RepositoryCache + "/charts/"
 	err = c.AddOrUpdateChartRepo(chartRepo)
+	c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
 	if err != nil {
 		c.DebugLog("Error in adding chart repo:", zap.Error(err))
 		return err
