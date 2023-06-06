@@ -1045,6 +1045,20 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 	})
 	if err != nil {
 		c.DebugLog("Error cloning repository:", zap.Error(err))
+		c.DebugLog("Adding Chart Repo")
+		c.DebugLog(c.Settings.RepositoryCache)
+		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
+			c.Settings.RepositoryCache = c.Settings.RepositoryCache + "/charts/"
+			c.DebugLog(c.Settings.RepositoryCache)
+		}
+		err = c.AddOrUpdateChartRepo(chartRepo)
+		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
+			c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
+		}
+		if err != nil {
+			c.DebugLog("Error in adding chart repo:", zap.Error(err))
+			return err
+		}
 		return err
 	}
 	c.DebugLog("Adding Chart Repo")
