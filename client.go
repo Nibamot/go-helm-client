@@ -383,16 +383,19 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			c.DebugLog(chartPath)
 			helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 			if err != nil {
+				c.DebugLog("Error in updateRecursiveDependencies")
 				return nil, err
 			}
 			values, err := spec.GetValuesMap()
 			if err != nil {
+				c.DebugLog("Error in spec.GetValuesMap")
 				return nil, err
 			}
 
 			if c.linting {
 				err = c.lint(chartPath, values)
 				if err != nil {
+					c.DebugLog("Error in linting")
 					return nil, err
 				}
 			}
