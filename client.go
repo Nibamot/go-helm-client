@@ -1069,13 +1069,11 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 	c.DebugLog("Adding Chart Repo")
 	c.DebugLog(c.Settings.RepositoryCache)
 	if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
-		c.Settings.RepositoryCache = c.Settings.RepositoryCache + "/charts/"
-		c.DebugLog(c.Settings.RepositoryCache)
+		chartDir := c.Settings.RepositoryCache + "/charts/"
+		output, _ := exec.Command("/bin/sh", "-c", "cp "+c.Settings.RepositoryCache+"/ngvoice* "+chartDir).Output()
+		c.DebugLog(string(output))
 	}
-	err = c.AddOrUpdateChartRepo(chartRepo)
-	if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
-		c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
-	}
+	// err = c.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		c.DebugLog("Error in adding chart repo:", err)
 		return err
