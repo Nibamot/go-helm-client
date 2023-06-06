@@ -1028,8 +1028,8 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 
 func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
 	//func GitPull(destFolder, repoURL, branchName, username, password string) error {
-
-	_, err := git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
+	c.Settings.RepositoryCache = c.Settings.RepositoryCache + "/charts/"
+	_, err := git.PlainClone(c.Settings.RepositoryCache, false, &git.CloneOptions{
 		URL:      repoUrl,
 		Progress: os.Stdout,
 		Auth: &http.BasicAuth{
