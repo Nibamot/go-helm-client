@@ -1143,7 +1143,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 							SkipUpdate:       false,
 							Getters:          c.Providers,
 							RepositoryConfig: c.Settings.RepositoryConfig,
-							RepositoryCache:  c.Settings.RepositoryCache + "/charts/",
+							RepositoryCache:  c.Settings.RepositoryCache + "/charts",
 							Out:              c.output,
 						}
 						if err := man.Update(); err != nil {
@@ -1162,10 +1162,8 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 				dependency = nil
 			}
 		}
-	} else {
-		c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart")
-		return helmChart, nil
 	}
+
 	c.DebugLog("Before helm update")
 	c.DebugLog(c.Settings.RepositoryCache)
 	c.DebugLog("chart Path is ", chartPath)
@@ -1175,7 +1173,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		SkipUpdate:       false,
 		Getters:          c.Providers,
 		RepositoryConfig: c.Settings.RepositoryConfig,
-		RepositoryCache:  c.Settings.RepositoryCache + "/charts/",
+		RepositoryCache:  c.Settings.RepositoryCache + "/charts",
 		Out:              c.output,
 	}
 	if err := man.Update(); err != nil {
