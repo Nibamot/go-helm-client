@@ -1056,7 +1056,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 			c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
 		}
 		if err != nil {
-			c.DebugLog("Error in adding chart repo:", zap.Error(err))
+			c.DebugLog("Error in adding chart repo:", err)
 			return err
 		}
 		return err
@@ -1072,7 +1072,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
 	}
 	if err != nil {
-		c.DebugLog("Error in adding chart repo:", zap.Error(err))
+		c.DebugLog("Error in adding chart repo:", err)
 		return err
 	}
 	return nil
