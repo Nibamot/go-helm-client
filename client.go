@@ -1045,7 +1045,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		return err
 	}
 	c.DebugLog("Adding Chart Repo")
-	// err = c.AddOrUpdateChartRepo(chartRepo)
+	err = c.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		c.DebugLog("Error in adding chart repo:", zap.Error(err))
 		return err
