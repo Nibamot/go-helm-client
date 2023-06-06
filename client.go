@@ -1119,7 +1119,7 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 // recursive updateDependencies
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
-	c.DebugLog("printing helmchart dependencies")
+	c.DebugLog("printing helmchart dependencies for chart ", helmChart.Metadata.Name)
 	if len(helmChart.Metadata.Dependencies) > 0 {
 		c.DebugLog(helmChart.Metadata.Dependencies[0].Name)
 
