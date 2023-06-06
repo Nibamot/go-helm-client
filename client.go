@@ -380,6 +380,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 			c.DebugLog("Before updating dependencies!")
 			// in case the charts have recursive dependencies
+			c.DebugLog(chartPath)
 			helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 			if err != nil {
 				return nil, err
@@ -402,8 +403,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 
 			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
-			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/").Output()
-			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"/charts/*/").Output()
+			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "/charts/.*")).Output()
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			c.DebugLog(string(output))
 			return rel, nil
@@ -1028,7 +1029,7 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
 	//func GitPull(destFolder, repoURL, branchName, username, password string) error {
 
-	_, err := git.PlainClone(c.Settings.RepositoryCache, false, &git.CloneOptions{
+	_, err := git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
 		URL:      repoUrl,
 		Progress: os.Stdout,
 		Auth: &http.BasicAuth{
@@ -1044,7 +1045,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		return err
 	}
 	c.DebugLog("Adding Chart Repo")
-	err = c.AddOrUpdateChartRepo(chartRepo)
+	// err = c.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		c.DebugLog("Error in adding chart repo:", zap.Error(err))
 		return err
@@ -1103,7 +1104,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 				dependency = append(dependency, dep)
 				// c.DebugLog(dep.Name + " next getting chart for " + dep.Name)
 				helmc, _, _ := c.GetChart(strings.ReplaceAll(chartPath, helmChart.Metadata.Name, "")+dep.Name, chartPathOptions)
-				updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name), c, dependencyUpdate, spec)
+				updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name)+"/charts/", c, dependencyUpdate, spec)
 				if err := action.CheckDependencies(helmc, dependency); err != nil {
 					if dependencyUpdate {
 						man := &downloader.Manager{
@@ -1112,7 +1113,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 							SkipUpdate:       false,
 							Getters:          c.Providers,
 							RepositoryConfig: c.Settings.RepositoryConfig,
-							RepositoryCache:  c.Settings.RepositoryCache,
+							RepositoryCache:  c.Settings.RepositoryCache + "/charts/",
 							Out:              c.output,
 						}
 						if err := man.Update(); err != nil {
@@ -1142,7 +1143,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		SkipUpdate:       false,
 		Getters:          c.Providers,
 		RepositoryConfig: c.Settings.RepositoryConfig,
-		RepositoryCache:  c.Settings.RepositoryCache,
+		RepositoryCache:  c.Settings.RepositoryCache + "/charts/",
 		Out:              c.output,
 	}
 	if err := man.Update(); err != nil {
