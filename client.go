@@ -1164,10 +1164,11 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		}
 	} else {
 		// c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart")
-		//return helmChart, nil
+		// return helmChart, nil
 	}
 	c.DebugLog("Before helm update")
 	c.DebugLog(c.Settings.RepositoryCache)
+	c.DebugLog("chart Path is ", chartPath)
 	man := &downloader.Manager{
 		ChartPath:        chartPath,
 		Keyring:          chartPathOptions.Keyring,
