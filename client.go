@@ -1048,6 +1048,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 	c.DebugLog(c.Settings.RepositoryCache)
 	if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
 		c.Settings.RepositoryCache = c.Settings.RepositoryCache + "/charts/"
+		c.DebugLog(c.Settings.RepositoryCache)
 	}
 	err = c.AddOrUpdateChartRepo(chartRepo)
 	if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
