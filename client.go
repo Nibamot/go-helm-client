@@ -1121,16 +1121,16 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	c.DebugLog("printing helmchart dependencies")
 	if len(helmChart.Metadata.Dependencies) > 0 {
-		// c.DebugLog(helmChart.Metadata.Dependencies[0].Name)
+		c.DebugLog(helmChart.Metadata.Dependencies[0].Name)
 
-		// c.DebugLog("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
+		c.DebugLog("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
 		var dependency []*chart.Dependency
 		// an array of chart dependencies. Check them in order one by one
 		if req := helmChart.Metadata.Dependencies; req != nil {
 			// c.DebugLog(req)
 			for _, dep := range req {
 				dependency = append(dependency, dep)
-				// c.DebugLog(dep.Name + " next getting chart for " + dep.Name)
+				c.DebugLog(dep.Name + " next getting chart for " + dep.Name)
 				helmc, _, _ := c.GetChart(strings.ReplaceAll(chartPath, helmChart.Metadata.Name, "")+"charts/"+dep.Name, chartPathOptions)
 				updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name)+"/charts/", c, dependencyUpdate, spec)
 				if err := action.CheckDependencies(helmc, dependency); err != nil {
@@ -1184,7 +1184,7 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		c.DebugLog("After trying to Get chart")
 		return nil, err
 	}
-	// c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart outer")
+	c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart outer")
 	return helmChart, nil
 }
 
