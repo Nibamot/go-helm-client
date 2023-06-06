@@ -1156,10 +1156,12 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 		Out:              c.output,
 	}
 	if err := man.Update(); err != nil {
+		c.DebugLog("After trying to update chart")
 		return nil, err
 	}
 	helmChart, _, err := c.GetChart(spec.ChartName, chartPathOptions)
 	if err != nil {
+		c.DebugLog("After trying to Get chart")
 		return nil, err
 	}
 	// c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart outer")
