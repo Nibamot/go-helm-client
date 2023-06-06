@@ -1163,8 +1163,8 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 			}
 		}
 	} else {
-		// c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart")
-		// return helmChart, nil
+		c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart")
+		return helmChart, nil
 	}
 	c.DebugLog("Before helm update")
 	c.DebugLog(c.Settings.RepositoryCache)
