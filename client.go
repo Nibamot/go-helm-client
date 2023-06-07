@@ -407,8 +407,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 
 			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
 			c.DebugLog(chartPath)
-			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/ && rm -r"+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
-			// output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/").Output()
+			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			c.DebugLog(string(output))
 			return rel, nil
@@ -549,8 +549,8 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 
 			c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
-			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/"+" && rm -r"+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
-			// output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/").Output()
+			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			c.DebugLog(string(output))
 			return upgradedRelease, nil
