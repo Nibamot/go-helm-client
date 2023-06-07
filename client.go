@@ -407,8 +407,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 
 			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
 			c.DebugLog(chartPath)
-			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/").Output()
-			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/ && rm -r"+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+			// output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			c.DebugLog(string(output))
 			return rel, nil
@@ -549,8 +549,8 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 
 			c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
-			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"/charts/*/").Output()
-			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "/charts/.*")).Output()
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/"+" && rm -r"+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
+			// output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			c.DebugLog(string(output))
 			return upgradedRelease, nil
@@ -1031,8 +1031,6 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 }
 
 func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
-	//func GitPull(destFolder, repoURL, branchName, username, password string) error {
-
 	_, err := git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
 		URL:      repoUrl,
 		Progress: os.Stdout,
@@ -1056,8 +1054,6 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 			c.DebugLog(c.Settings.RepositoryCache)
 
 		}
-		// output, _ := exec.Command("/bin/sh", "-c", "cat "+str).Output()
-		// err = c.AddOrUpdateChartRepo(chartRepo)
 		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
 			c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
 		}
@@ -1074,7 +1070,6 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		output, _ := exec.Command("/bin/sh", "-c", "cp "+c.Settings.RepositoryCache+"/ngvoice* "+chartDir).Output()
 		c.DebugLog(string(output))
 	}
-	// err = c.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		c.DebugLog("Error in adding chart repo:", err)
 		return err
@@ -1084,11 +1079,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
-	// c.DebugLog("printing helmchart dependencies")
-	// c.DebugLog(helmChart.Metadata.Dependencies[0].Name)
-	// c.DebugLog("printing path of chart " + chartPath)
 	if req := helmChart.Metadata.Dependencies; req != nil {
-		// c.DebugLog(req)
 		if err := action.CheckDependencies(helmChart, req); err != nil {
 			if dependencyUpdate {
 				man := &downloader.Manager{
