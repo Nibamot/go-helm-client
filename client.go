@@ -409,6 +409,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			c.DebugLog(chartPath)
 			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/").Output()
 			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+
 			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 			c.DebugLog(string(output))
 			return rel, nil
@@ -1031,7 +1032,11 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 }
 
 func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
-	_, err := git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
+	output, err := exec.Command("/bin/sh", "-c", "ls ", c.Settings.RepositoryCache+"/charts/").Output()
+	c.DebugLog(fmt.Sprint(output))
+	output, err = exec.Command("/bin/sh", "-c", "rm -rf ", c.Settings.RepositoryCache+"/charts/.*").Output()
+	c.DebugLog(fmt.Sprint(output))
+	_, err = git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
 		URL:      repoUrl,
 		Progress: os.Stdout,
 		Auth: &http.BasicAuth{
@@ -1048,6 +1053,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		c.DebugLog(c.Settings.RepositoryCache)
 		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
 			chartDir := c.Settings.RepositoryCache + "/charts/"
+
 			output, _ := exec.Command("/bin/sh", "-c", "cp "+c.Settings.RepositoryCache+"/ngvoice* "+chartDir).Output()
 			c.DebugLog(string(output))
 
