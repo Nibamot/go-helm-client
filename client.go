@@ -1032,6 +1032,7 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 }
 
 func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
+	c.DebugLog("addInstallFromBranch 1035")
 	output, err := exec.Command("/bin/sh", "-c", "ls ", c.Settings.RepositoryCache+"/charts/").Output()
 	c.DebugLog(fmt.Sprint(output))
 	output, err = exec.Command("/bin/sh", "-c", "rm -rf ", c.Settings.RepositoryCache+"/charts/.*").Output()
