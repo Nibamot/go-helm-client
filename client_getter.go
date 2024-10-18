@@ -1,6 +1,8 @@
 package helmclient
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -58,7 +60,12 @@ func (c *RESTClientGetter) ToRESTMapper() (meta.RESTMapper, error) {
 	}
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-	expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
+	// Define your warningHandler function, which will handle warnings.
+	warningHandler := func(warningMessage string) {
+		// Handle the warning, e.g., log it or print it
+		fmt.Println("Warning:", warningMessage)
+	}
+	expander := restmapper.NewShortcutExpander(mapper, discoveryClient, warningHandler)
 	return expander, nil
 }
 

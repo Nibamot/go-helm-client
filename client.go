@@ -11,8 +11,12 @@ import (
 	"reflect"
 	"strings"
 
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -334,63 +338,147 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *GenericHelmOptions) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
+	// c.DebugLog(" in install function! " + strconv.FormatBool(spec.GitInstall))
 
-	// NameAndChart returns either the TemplateName if set,
-	// the ReleaseName if set or the generatedName as the first return value.
-	releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
-	if err != nil {
-		return nil, err
-	}
-	client.ReleaseName = releaseName
+	// //check if install from a specific branch is enabled
+	if spec.GitInstall {
+		// output, _ := exec.Command("/bin/sh", "-c", "ls "+"/charts/").Output()
+		c.DebugLog("in  the first if!")
+		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
+			c.DebugLog(" Going to clone from a specific branch")
+			c.DebugLog(" Username: " + *spec.GitRepositoryUserName)
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword, spec.ChartRepo)
+			// NameAndChart returns either the TemplateName if set,
+			// the ReleaseName if set or the generatedName as the first return value.
+			releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
+			if err != nil {
+				return nil, err
+			}
+			client.ReleaseName = releaseName
 
-	if client.Version == "" {
-		client.Version = ">0.0.0-0"
-	}
+			if client.Version == "" {
+				client.Version = ">0.0.0-0"
+			}
 
-	if opts != nil {
-		if opts.PostRenderer != nil {
-			client.PostRenderer = opts.PostRenderer
+			if opts != nil {
+				if opts.PostRenderer != nil {
+					client.PostRenderer = opts.PostRenderer
+				}
+			}
+			c.DebugLog("Before get chart")
+			helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+			if err != nil {
+				return nil, err
+			}
+			c.DebugLog("After get chart")
+			if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+				return nil, fmt.Errorf(
+					"chart %q has an unsupported type and is not installable: %q",
+					helmChart.Metadata.Name,
+					helmChart.Metadata.Type,
+				)
+			}
+			c.DebugLog("Before updating dependencies!")
+			// in case the charts have recursive dependencies
+			c.DebugLog(chartPath)
+			helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+			if err != nil {
+				c.DebugLog("Error in updateRecursiveDependencies")
+				return nil, err
+			}
+			values, err := spec.GetValuesMap()
+			if err != nil {
+				c.DebugLog("Error in spec.GetValuesMap")
+				return nil, err
+			}
+
+			if c.linting {
+				err = c.lint(chartPath, values)
+				if err != nil {
+					c.DebugLog("Error in linting")
+					return nil, err
+				}
+			}
+
+			rel, err := client.RunWithContext(ctx, helmChart, values)
+			if err != nil {
+				return rel, err
+			}
+
+			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+			c.DebugLog(chartPath)
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/").Output()
+			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+
+			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+			c.DebugLog(string(output))
+			return rel, nil
+		} else if spec.GitRepositoryBranch == nil && spec.GitRepositoryURL == nil {
+			c.DebugLog("Please specify a git repository and its branch")
 		}
-	}
-
-	helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
-		return nil, fmt.Errorf(
-			"chart %q has an unsupported type and is not installable: %q",
-			helmChart.Metadata.Name,
-			helmChart.Metadata.Type,
-		)
-	}
-
-	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
-	if err != nil {
-		return nil, err
-	}
-
-	values, err := spec.GetValuesMap()
-	if err != nil {
-		return nil, err
-	}
-
-	if c.linting {
-		err = c.lint(chartPath, values)
+	} else {
+		// NameAndChart returns either the TemplateName if set,
+		// the ReleaseName if set or the generatedName as the first return value.
+		releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
 		if err != nil {
 			return nil, err
 		}
+		client.ReleaseName = releaseName
+
+		if client.Version == "" {
+			client.Version = ">0.0.0-0"
+		}
+
+		if opts != nil {
+			if opts.PostRenderer != nil {
+				client.PostRenderer = opts.PostRenderer
+			}
+		}
+		c.DebugLog("Before get chart")
+		helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+		if err != nil {
+			return nil, err
+		}
+		c.DebugLog("After get chart")
+		if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+			return nil, fmt.Errorf(
+				"chart %q has an unsupported type and is not installable: %q",
+				helmChart.Metadata.Name,
+				helmChart.Metadata.Type,
+			)
+		}
+		c.DebugLog("Before updating dependencies!")
+		// in case the charts have recursive dependencies
+		helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+		if err != nil {
+			return nil, err
+		}
+		//output, _ := exec.Command("/bin/sh", "-c", "ls "+chartPath+"/charts/").Output()
+		//c.DebugLog(string(output))
+		//c.DebugLog("out of recursion!")
+		values, err := spec.GetValuesMap()
+		if err != nil {
+			return nil, err
+		}
+
+		if c.linting {
+			err = c.lint(chartPath, values)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		rel, err := client.RunWithContext(ctx, helmChart, values)
+		if err != nil {
+			return rel, err
+		}
+
+		c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+
+		return rel, nil
 	}
-
-	rel, err := client.RunWithContext(ctx, helmChart, values)
-	if err != nil {
-		return rel, err
-	}
-
-	c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
-
-	return rel, nil
+	c.DebugLog(" Returning Nothing!")
+	return nil, nil
 }
 
 // upgrade upgrades a chart and CRDs.
@@ -399,65 +487,138 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 	client := action.NewUpgrade(c.ActionConfig)
 	mergeUpgradeOptions(spec, client)
 	client.Install = true
+	// check if upgrade is from the branch and if gitinstall is set
+	if spec.GitInstall {
+		c.DebugLog("in  the first if!")
+		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
+			c.DebugLog(" Going to clone from a specific branch")
+			c.DebugLog(" Username: " + *spec.GitRepositoryUserName)
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword, spec.ChartRepo)
+			if client.Version == "" {
+				client.Version = ">0.0.0-0"
+			}
 
-	if client.Version == "" {
-		client.Version = ">0.0.0-0"
-	}
+			if opts != nil {
+				if opts.PostRenderer != nil {
+					client.PostRenderer = opts.PostRenderer
+				}
+			}
 
-	if opts != nil {
-		if opts.PostRenderer != nil {
-			client.PostRenderer = opts.PostRenderer
+			helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+			if err != nil {
+				return nil, err
+			}
+
+			helmChart, err = updateRecursiveDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+			if err != nil {
+				return nil, err
+			}
+
+			values, err := spec.GetValuesMap()
+			if err != nil {
+				return nil, err
+			}
+
+			if c.linting {
+				err = c.lint(chartPath, values)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			if !spec.SkipCRDs && spec.UpgradeCRDs {
+				c.DebugLog("upgrading crds")
+				err = c.upgradeCRDs(ctx, helmChart)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+			if upgradeErr != nil {
+				resultErr := upgradeErr
+				if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
+					rollbackErr := opts.RollBack.RollbackRelease(spec)
+					if rollbackErr != nil {
+						resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
+					} else {
+						resultErr = fmt.Errorf("release failed, rollback succeeded: release error: %w", upgradeErr)
+					}
+				}
+				c.DebugLog("release upgrade failed: %s", resultErr)
+				return nil, resultErr
+			}
+
+			c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
+			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/").Output()
+			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
+			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
+			c.DebugLog(string(output))
+			return upgradedRelease, nil
+		} else if spec.GitRepositoryBranch == nil && spec.GitRepositoryURL == nil {
+			c.DebugLog("Please specify a git repository and its branch")
 		}
-	}
-
-	helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
-	if err != nil {
-		return nil, err
-	}
-
-	values, err := spec.GetValuesMap()
-	if err != nil {
-		return nil, err
-	}
-
-	if c.linting {
-		err = c.lint(chartPath, values)
-		if err != nil {
-			return nil, err
+	} else {
+		if client.Version == "" {
+			client.Version = ">0.0.0-0"
 		}
-	}
 
-	if !spec.SkipCRDs && spec.UpgradeCRDs {
-		c.DebugLog("upgrading crds")
-		err = c.upgradeCRDs(ctx, helmChart)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
-	if upgradeErr != nil {
-		resultErr := upgradeErr
-		if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
-			rollbackErr := opts.RollBack.RollbackRelease(spec)
-			if rollbackErr != nil {
-				resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
-			} else {
-				resultErr = fmt.Errorf("release failed, rollback succeeded: release error: %w", upgradeErr)
+		if opts != nil {
+			if opts.PostRenderer != nil {
+				client.PostRenderer = opts.PostRenderer
 			}
 		}
-		c.DebugLog("release upgrade failed: %s", resultErr)
-		return nil, resultErr
+
+		helmChart, chartPath, err := c.GetChart(spec.ChartName, &client.ChartPathOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+		if err != nil {
+			return nil, err
+		}
+
+		values, err := spec.GetValuesMap()
+		if err != nil {
+			return nil, err
+		}
+
+		if c.linting {
+			err = c.lint(chartPath, values)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if !spec.SkipCRDs && spec.UpgradeCRDs {
+			c.DebugLog("upgrading crds")
+			err = c.upgradeCRDs(ctx, helmChart)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+		if upgradeErr != nil {
+			resultErr := upgradeErr
+			if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
+				rollbackErr := opts.RollBack.RollbackRelease(spec)
+				if rollbackErr != nil {
+					resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
+				} else {
+					resultErr = fmt.Errorf("release failed, rollback succeeded: release error: %w", upgradeErr)
+				}
+			}
+			c.DebugLog("release upgrade failed: %s", resultErr)
+			return nil, resultErr
+		}
+
+		c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
+
+		return upgradedRelease, nil
 	}
-
-	c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
-
-	return upgradedRelease, nil
+	return nil, nil
 }
 
 // uninstallRelease uninstalls the provided release.
@@ -870,6 +1031,59 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 	return client.Run(spec.ReleaseName)
 }
 
+func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
+	c.DebugLog("addInstallFromBranch 1035")
+	output, err := exec.Command("/bin/sh", "-c", "ls ", c.Settings.RepositoryCache+"/charts/").Output()
+	c.DebugLog(fmt.Sprint(output))
+	output, err = exec.Command("/bin/sh", "-c", "rm -rf ", c.Settings.RepositoryCache+"/charts/.*").Output()
+	c.DebugLog(fmt.Sprint(output))
+	_, err = git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
+		URL:      repoUrl,
+		Progress: os.Stdout,
+		Auth: &http.BasicAuth{
+			Username: username,
+			Password: password,
+		},
+		ReferenceName: plumbing.NewBranchReferenceName(branchName),
+		SingleBranch:  true,
+		RemoteName:    "origin",
+	})
+	if err != nil {
+		c.DebugLog("Error cloning repository:", zap.Error(err))
+		c.DebugLog("Adding Chart Repo")
+		c.DebugLog(c.Settings.RepositoryCache)
+		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
+			chartDir := c.Settings.RepositoryCache + "/charts/"
+
+			output, _ := exec.Command("/bin/sh", "-c", "cp "+c.Settings.RepositoryCache+"/ngvoice* "+chartDir).Output()
+			c.DebugLog(string(output))
+
+			c.DebugLog(c.Settings.RepositoryCache)
+
+		}
+		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
+			c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
+		}
+		if err != nil {
+			c.DebugLog("Error in adding chart repo:", err)
+			return err
+		}
+		return err
+	}
+	c.DebugLog("Adding Chart Repo")
+	c.DebugLog(c.Settings.RepositoryCache)
+	if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
+		chartDir := c.Settings.RepositoryCache + "/charts/"
+		output, _ := exec.Command("/bin/sh", "-c", "cp "+c.Settings.RepositoryCache+"/ngvoice* "+chartDir).Output()
+		c.DebugLog(string(output))
+	}
+	if err != nil {
+		c.DebugLog("Error in adding chart repo:", err)
+		return err
+	}
+	return nil
+}
+
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	if req := helmChart.Metadata.Dependencies; req != nil {
@@ -898,6 +1112,79 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 			}
 		}
 	}
+	return helmChart, nil
+}
+
+// recursive updateDependencies
+// updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
+func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
+	c.DebugLog("printing helmchart dependencies for chart ", helmChart.Metadata.Name)
+	if len(helmChart.Metadata.Dependencies) > 0 {
+		c.DebugLog(helmChart.Metadata.Dependencies[0].Name)
+
+		c.DebugLog("printing path of chart " + strings.ReplaceAll(chartPath, helmChart.Metadata.Name, ""))
+		var dependency []*chart.Dependency
+		// an array of chart dependencies. Check them in order one by one
+		if req := helmChart.Metadata.Dependencies; req != nil {
+			// c.DebugLog(req)
+			for _, dep := range req {
+				dependency = append(dependency, dep)
+				c.DebugLog(chartPath)
+				c.DebugLog(dep.Name + " next getting chart for " + dep.Name)
+				c.DebugLog(c.Settings.RepositoryCache + " repocache")
+				helmc, _, _ := c.GetChart(strings.ReplaceAll(chartPath, helmChart.Metadata.Name, "")+dep.Name, chartPathOptions)
+				updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name), c, dependencyUpdate, spec)
+				if err := action.CheckDependencies(helmc, dependency); err != nil {
+					if dependencyUpdate {
+						man := &downloader.Manager{
+							ChartPath:        strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name),
+							Keyring:          chartPathOptions.Keyring,
+							SkipUpdate:       false,
+							Getters:          c.Providers,
+							RepositoryConfig: c.Settings.RepositoryConfig,
+							RepositoryCache:  c.Settings.RepositoryCache + "/charts",
+							Out:              c.output,
+						}
+						if err := man.Update(); err != nil {
+							return nil, err
+						}
+
+						helmChart, _, err = c.GetChart(spec.ChartName, chartPathOptions)
+						if err != nil {
+							return nil, err
+						}
+
+					} else {
+						return nil, err
+					}
+				}
+				dependency = nil
+			}
+		}
+	}
+
+	c.DebugLog("Before helm update")
+	c.DebugLog(c.Settings.RepositoryCache)
+	c.DebugLog("chart Path is ", chartPath)
+	man := &downloader.Manager{
+		ChartPath:        chartPath,
+		Keyring:          chartPathOptions.Keyring,
+		SkipUpdate:       false,
+		Getters:          c.Providers,
+		RepositoryConfig: c.Settings.RepositoryConfig,
+		RepositoryCache:  c.Settings.RepositoryCache + "/charts",
+		Out:              c.output,
+	}
+	if err := man.Update(); err != nil {
+		c.DebugLog("After trying to update chart")
+		return nil, err
+	}
+	helmChart, _, err := c.GetChart(spec.ChartName, chartPathOptions)
+	if err != nil {
+		c.DebugLog("After trying to Get chart")
+		return nil, err
+	}
+	c.DebugLog(helmChart.Metadata.Name + "<-- returning this chart outer")
 	return helmChart, nil
 }
 
