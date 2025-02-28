@@ -1070,6 +1070,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 	c.DebugLog("addInstallFromBranch 1035")
 	output, err := exec.Command("/bin/sh", "-c", "ls ", c.Settings.RepositoryCache+"/charts/").Output()
 	c.DebugLog(fmt.Sprint(output))
+	c.DebugLog(c.Settings.RepositoryCache)
 	output, err = exec.Command("/bin/sh", "-c", "rm -rf ", c.Settings.RepositoryCache+"/charts/.*").Output()
 	c.DebugLog(fmt.Sprint(output))
 	_, err = git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
