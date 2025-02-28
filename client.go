@@ -203,9 +203,9 @@ func (c *HelmClient) SearchChartRepo(searchchartbyname string, path string) (str
 	// Return only filtered versions
 	if len(validVersions) > 0 {
 		return strings.Join(validVersions, "\n"), nil
-	} else {
-		return "", fmt.Errorf("no matching versions found")
 	}
+	return "", fmt.Errorf("no matching versions found")
+
 	// output, err := exec.Command("/bin/sh", "-c", "cat "+path+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//' | sed -E 's/"+searchchartbyname+"-//'").Output()
 	// if err == nil {
 	// 	return string(output), nil
@@ -214,7 +214,7 @@ func (c *HelmClient) SearchChartRepo(searchchartbyname string, path string) (str
 	// }
 }
 
-// SearchChartRepo searches the provided helm chart repository.
+// GetLatestVersion searches the provided helm chart repository.
 func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string) (string, error) {
 
 	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
@@ -234,7 +234,7 @@ func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string
 	}
 }
 
-// ListCharts lists all the chartts available in the provided helm chart repository. //TO_DO
+// ListChartRepo lists all the chartts available in the provided helm chart repository. //TO_DO
 func (c *HelmClient) ListChartRepo(entry repo.Entry) (string, error) {
 
 	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
