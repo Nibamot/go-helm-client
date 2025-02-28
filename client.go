@@ -581,6 +581,9 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 					}
 				}
 				c.DebugLog("release upgrade failed: %s", resultErr)
+				output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/").Output()
+				output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
+				c.DebugLog("release upgrade failed and " + string(output))
 				return nil, resultErr
 			}
 
