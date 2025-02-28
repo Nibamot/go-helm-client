@@ -175,8 +175,11 @@ func setEnvSettings(ppOptions **Options, settings *cli.EnvSettings) error {
 // SearchChartRepo searches the provided helm chart repository.
 func (c *HelmClient) SearchChartRepo(searchchartbyname string, path string) (string, error) {
 
-	// Regex pattern to match both stable and pre-release versions
-	versionPattern := fmt.Sprintf(`^%s-(\d+\.\d+\.\d+(?:-(alpha|beta|rc|dev|snapshot|preview|nightly|test|canary|m[0-9]+)?)?)$`, searchchartbyname)
+	// Keep this for only stable tags
+	// versionPattern := fmt.Sprintf(`^%s-(\d+\.\d+\.\d+(?:-(alpha|beta|rc|dev|snapshot|preview|nightly|test|canary|m[0-9]+)?)?)$`, searchchartbyname)
+
+	// Regex pattern to match versions only for the correct component
+	versionPattern := fmt.Sprintf(`^%s-(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$`, searchchartbyname)
 
 	// Construct the shell command to extract relevant versions
 	cmd := fmt.Sprintf(`awk -F'/' '/%s/ && /http/ && /api/ {print $NF}' %s | sed -E 's/.tgz//'`, searchchartbyname, path)
