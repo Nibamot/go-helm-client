@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"go.uber.org/zap"
@@ -174,12 +175,43 @@ func setEnvSettings(ppOptions **Options, settings *cli.EnvSettings) error {
 // SearchChartRepo searches the provided helm chart repository.
 func (c *HelmClient) SearchChartRepo(searchchartbyname string, path string) (string, error) {
 
-	output, err := exec.Command("/bin/sh", "-c", "cat "+path+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//' | sed -E 's/"+searchchartbyname+"-//'").Output()
-	if err == nil {
-		return string(output), nil
-	} else {
-		return "Some Error", err
+	// Regex pattern to match both stable and pre-release versions
+	versionPattern := fmt.Sprintf(`^%s-(\d+\.\d+\.\d+(?:-(alpha|beta|rc|dev|snapshot|preview|nightly|test|canary|m[0-9]+)?)?)$`, searchchartbyname)
+
+	// Construct the shell command to extract relevant versions
+	cmd := fmt.Sprintf(`awk -F'/' '/%s/ && /http/ && /api/ {print $NF}' %s | sed -E 's/.tgz//'`, searchchartbyname, path)
+
+	// Execute the command
+	output, err := exec.Command("/bin/sh", "-c", cmd).Output()
+	if err != nil {
+		return "", err
 	}
+
+	// Process the output to extract valid versions
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	validVersions := []string{}
+	versionRegex := regexp.MustCompile(versionPattern)
+
+	for _, line := range lines {
+		if versionRegex.MatchString(line) {
+			// Extract only the version part (remove `searchchartbyname-`)
+			version := strings.TrimPrefix(line, searchchartbyname+"-")
+			validVersions = append(validVersions, version)
+		}
+	}
+
+	// Return only filtered versions
+	if len(validVersions) > 0 {
+		return strings.Join(validVersions, "\n"), nil
+	} else {
+		return "", fmt.Errorf("no matching versions found")
+	}
+	// output, err := exec.Command("/bin/sh", "-c", "cat "+path+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//' | sed -E 's/"+searchchartbyname+"-//'").Output()
+	// if err == nil {
+	// 	return string(output), nil
+	// } else {
+	// 	return "Some Error", err
+	// }
 }
 
 // SearchChartRepo searches the provided helm chart repository.
