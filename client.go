@@ -193,8 +193,8 @@ func (c *HelmClient) SearchChartRepo(searchchartbyname string, path string) (str
 	versionRegex := regexp.MustCompile(versionPattern)
 
 	for _, line := range lines {
-		fmt.Println(line + " version for " + searchchartbyname)
 		if versionRegex.MatchString(line) {
+			fmt.Println(line + " version for " + searchchartbyname)
 			// Extract only the version part (remove `searchchartbyname-`)
 			version := strings.TrimPrefix(line, searchchartbyname+"-")
 			validVersions = append(validVersions, version)
