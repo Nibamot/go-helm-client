@@ -30,3 +30,8 @@ If you made changes to [interface.go](./interface.go), you should issue the `go 
 
 ## Documentation
 For more specific documentation, please refer to the [godoc](https://pkg.go.dev/github.com/mittwald/go-helm-client/) of this library.
+
+
+## Notice
+
+This is a fork of the original project by Mittwald CM Service (MIT License). This fork includes modifications to support the latest version of Helm and additional features.
