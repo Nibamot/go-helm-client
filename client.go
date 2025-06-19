@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"go.uber.org/zap"
@@ -174,15 +175,49 @@ func setEnvSettings(ppOptions **Options, settings *cli.EnvSettings) error {
 // SearchChartRepo searches the provided helm chart repository.
 func (c *HelmClient) SearchChartRepo(searchchartbyname string, path string) (string, error) {
 
-	output, err := exec.Command("/bin/sh", "-c", "cat "+path+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//' | sed -E 's/"+searchchartbyname+"-//'").Output()
-	if err == nil {
-		return string(output), nil
-	} else {
-		return "Some Error", err
+	// Keep this for only stable tags
+	// versionPattern := fmt.Sprintf(`^%s-(\d+\.\d+\.\d+(?:-(alpha|beta|rc|dev|snapshot|preview|nightly|test|canary|m[0-9]+)?)?)$`, searchchartbyname)
+
+	// Regex pattern to match versions only for the correct component
+	versionPattern := fmt.Sprintf(`^%s-(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$`, searchchartbyname)
+
+	// Construct the shell command to extract relevant versions
+	cmd := fmt.Sprintf(`awk -F'/' '/%s/ && /http/ && /api/ {print $NF}' %s | sed -E 's/.tgz//'`, searchchartbyname, path)
+
+	// Execute the command
+	output, err := exec.Command("/bin/sh", "-c", cmd).Output()
+	if err != nil {
+		return "", err
 	}
+
+	// Process the output to extract valid versions
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	validVersions := []string{}
+	versionRegex := regexp.MustCompile(versionPattern)
+
+	for _, line := range lines {
+		if versionRegex.MatchString(line) {
+			// Extract only the version part (remove `searchchartbyname-`)
+			version := strings.TrimPrefix(line, searchchartbyname+"-")
+			validVersions = append(validVersions, version)
+		}
+	}
+
+	// Return only filtered versions
+	if len(validVersions) > 0 {
+		return strings.Join(validVersions, "\n"), nil
+	}
+	return "", fmt.Errorf("no matching versions found")
+
+	// output, err := exec.Command("/bin/sh", "-c", "cat "+path+"| grep "+searchchartbyname+"| grep http | grep api |rev |cut -d '/' -f 1| rev | sed -E 's/.tgz*//' | sed -E 's/"+searchchartbyname+"-//'").Output()
+	// if err == nil {
+	// 	return string(output), nil
+	// } else {
+	// 	return "Some Error", err
+	// }
 }
 
-// SearchChartRepo searches the provided helm chart repository.
+// GetLatestVersion searches the provided helm chart repository.
 func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string) (string, error) {
 
 	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
@@ -202,7 +237,7 @@ func (c *HelmClient) GetLatestVersion(entry repo.Entry, searchchartbyname string
 	}
 }
 
-// ListCharts lists all the chartts available in the provided helm chart repository. //TO_DO
+// ListChartRepo lists all the chartts available in the provided helm chart repository. //TO_DO
 func (c *HelmClient) ListChartRepo(entry repo.Entry) (string, error) {
 
 	chartRepo, err := repo.NewChartRepository(&entry, c.Providers)
@@ -546,6 +581,9 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 					}
 				}
 				c.DebugLog("release upgrade failed: %s", resultErr)
+				output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/").Output()
+				output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
+				c.DebugLog("release upgrade failed and " + string(output))
 				return nil, resultErr
 			}
 
@@ -1035,6 +1073,7 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 	c.DebugLog("addInstallFromBranch 1035")
 	output, err := exec.Command("/bin/sh", "-c", "ls ", c.Settings.RepositoryCache+"/charts/").Output()
 	c.DebugLog(fmt.Sprint(output))
+	c.DebugLog(c.Settings.RepositoryCache)
 	output, err = exec.Command("/bin/sh", "-c", "rm -rf ", c.Settings.RepositoryCache+"/charts/.*").Output()
 	c.DebugLog(fmt.Sprint(output))
 	_, err = git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
