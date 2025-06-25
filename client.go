@@ -1013,7 +1013,7 @@ func (c *HelmClient) GetChart(chartName string, chartPathOptions *action.ChartPa
 	if helmChart.Metadata.Deprecated {
 		c.DebugLog("WARNING: This chart (%q) is deprecated", helmChart.Metadata.Name)
 	}
-
+	fmt.Println(helmChart.Name() + " correct?")
 	return helmChart, chartPath, err
 }
 
