@@ -1004,7 +1004,7 @@ func (c *HelmClient) GetChart(chartName string, chartPathOptions *action.ChartPa
 	if err != nil {
 		return nil, "", err
 	}
-
+	fmt.Println(chartName + " " + chartPath)
 	helmChart, err := loader.Load(chartPath)
 	if err != nil {
 		return nil, "", err
