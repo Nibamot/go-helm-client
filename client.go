@@ -182,7 +182,7 @@ func (c *HelmClient) SearchChartRepo(searchchartbyname string, path string) (str
 	versionPattern := fmt.Sprintf(`^%s-(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$`, searchchartbyname)
 
 	// Construct the shell command to extract relevant versions
-	cmd := fmt.Sprintf(`awk -F'/' '/%s/ && /http/ && /api/ {print $NF}' %s | sed -E 's/.tgz//'`, searchchartbyname, path)
+	cmd := fmt.Sprintf(`awk -F'/' '/%s/ && /http/ {print $NF}' %s | sed -E 's/.tgz//'`, searchchartbyname, path)
 
 	// Execute the command
 	output, err := exec.Command("/bin/sh", "-c", cmd).Output()
