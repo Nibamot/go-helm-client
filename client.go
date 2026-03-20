@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strings"
 
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-git/go-git/v5"
@@ -382,7 +381,7 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
 			c.DebugLog(" Going to clone from a specific branch")
 			c.DebugLog(" Username: " + *spec.GitRepositoryUserName)
-			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword, spec.ChartRepo)
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword)
 			// NameAndChart returns either the TemplateName if set,
 			// the ReleaseName if set or the generatedName as the first return value.
 			releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
@@ -441,12 +440,14 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 
 			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
-			c.DebugLog(chartPath)
-			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")+"*/").Output()
-			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
 
-			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
-			c.DebugLog(string(output))
+			// Clean up temporary chart files
+			baseDir := strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, "")
+			if baseDir != "" && baseDir != "/" {
+				if err := c.cleanupChartCache(baseDir); err != nil {
+					c.DebugLog("Warning: cleanup failed but release succeeded: %v", err)
+				}
+			}
 			return rel, nil
 		} else if spec.GitRepositoryBranch == nil && spec.GitRepositoryURL == nil {
 			c.DebugLog("Please specify a git repository and its branch")
@@ -528,7 +529,7 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 		if spec.GitRepositoryBranch != nil && spec.GitRepositoryURL != nil {
 			c.DebugLog(" Going to clone from a specific branch")
 			c.DebugLog(" Username: " + *spec.GitRepositoryUserName)
-			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword, spec.ChartRepo)
+			addInstallFromBranchOption(c, *spec.GitRepositoryURL, *spec.GitRepositoryBranch, *spec.GitRepositoryUserName, *spec.GitRepositoryPassword)
 			if client.Version == "" {
 				client.Version = ">0.0.0-0"
 			}
@@ -581,17 +582,26 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 					}
 				}
 				c.DebugLog("release upgrade failed: %s", resultErr)
-				output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/").Output()
-				output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
-				c.DebugLog("release upgrade failed and " + string(output))
+
+				// Clean up temporary chart files even on failure
+				baseDir := strings.ReplaceAll(chartPath, spec.ReleaseName, "")
+				if baseDir != "" && baseDir != "/" {
+					if err := c.cleanupChartCache(baseDir); err != nil {
+						c.DebugLog("Warning: cleanup failed after upgrade failure: %v", err)
+					}
+				}
 				return nil, resultErr
 			}
 
 			c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
-			output, _ := exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, "")+"*/").Output()
-			output, _ = exec.Command("/bin/sh", "-c", "rm -r "+strings.ReplaceAll(chartPath, spec.ReleaseName, ".*")).Output()
-			// output, _ = exec.Command("/bin/sh", "-c", "rm -rf "+strings.ReplaceAll(chartPath, rel.Chart.Metadata.Name, ".*")).Output()
-			c.DebugLog(string(output))
+
+			// Clean up temporary chart files
+			baseDir := strings.ReplaceAll(chartPath, spec.ReleaseName, "")
+			if baseDir != "" && baseDir != "/" {
+				if err := c.cleanupChartCache(baseDir); err != nil {
+					c.DebugLog("Warning: cleanup failed but release succeeded: %v", err)
+				}
+			}
 			return upgradedRelease, nil
 		} else if spec.GitRepositoryBranch == nil && spec.GitRepositoryURL == nil {
 			c.DebugLog("Please specify a git repository and its branch")
@@ -1069,15 +1079,40 @@ func (c *HelmClient) rollbackRelease(spec *ChartSpec) error {
 	return client.Run(spec.ReleaseName)
 }
 
-func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string, username string, password string, chartRepo repo.Entry) error {
-	c.DebugLog("addInstallFromBranch 1035")
-	output, err := exec.Command("/bin/sh", "-c", "ls ", c.Settings.RepositoryCache+"/charts/").Output()
-	c.DebugLog(fmt.Sprint(output))
-	c.DebugLog(c.Settings.RepositoryCache)
-	output, err = exec.Command("/bin/sh", "-c", "rm -rf ", c.Settings.RepositoryCache+"/charts/.*").Output()
-	c.DebugLog(fmt.Sprint(output))
-	_, err = git.PlainClone(c.Settings.RepositoryCache+"/charts/", false, &git.CloneOptions{
-		URL:      repoUrl,
+// cleanupChartCache removes temporary chart files from the cache directory
+func (c *HelmClient) cleanupChartCache(chartPath string) error {
+	if chartPath == "" {
+		return nil
+	}
+
+	// Use os.RemoveAll for reliable deletion
+	if err := os.RemoveAll(chartPath); err != nil {
+		c.DebugLog("Warning: failed to cleanup chart cache at %s: %v", chartPath, err)
+		return err
+	}
+	c.DebugLog("Successfully cleaned up chart cache: %s", chartPath)
+	return nil
+}
+
+func addInstallFromBranchOption(c *HelmClient, repoURL string, branchName string, username string, password string) error {
+	c.DebugLog("addInstallFromBranch: starting")
+	chartsDir := c.Settings.RepositoryCache + "/charts/"
+
+	// Clean up existing charts directory if it exists
+	if _, err := os.Stat(chartsDir); err == nil {
+		c.DebugLog("Cleaning up existing charts directory: %s", chartsDir)
+		if err := os.RemoveAll(chartsDir); err != nil {
+			c.DebugLog("Warning: failed to remove existing charts dir: %v", err)
+		}
+	}
+
+	// Create charts directory
+	if err := os.MkdirAll(chartsDir, 0755); err != nil {
+		c.DebugLog("Error creating charts directory: %v", err)
+		return err
+	}
+	_, err := git.PlainClone(chartsDir, false, &git.CloneOptions{
+		URL:      repoURL,
 		Progress: os.Stdout,
 		Auth: &http.BasicAuth{
 			Username: username,
@@ -1088,38 +1123,11 @@ func addInstallFromBranchOption(c *HelmClient, repoUrl string, branchName string
 		RemoteName:    "origin",
 	})
 	if err != nil {
-		c.DebugLog("Error cloning repository:", zap.Error(err))
-		c.DebugLog("Adding Chart Repo")
-		c.DebugLog(c.Settings.RepositoryCache)
-		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
-			chartDir := c.Settings.RepositoryCache + "/charts/"
-
-			output, _ := exec.Command("/bin/sh", "-c", "cp "+c.Settings.RepositoryCache+"/ngvoice* "+chartDir).Output()
-			c.DebugLog(string(output))
-
-			c.DebugLog(c.Settings.RepositoryCache)
-
-		}
-		if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
-			c.Settings.RepositoryCache = strings.ReplaceAll(c.Settings.RepositoryCache, "charts/", "")
-		}
-		if err != nil {
-			c.DebugLog("Error in adding chart repo:", err)
-			return err
-		}
-		return err
+		c.DebugLog("Error cloning repository: %v", err)
+		return fmt.Errorf("failed to clone git repository: %w", err)
 	}
-	c.DebugLog("Adding Chart Repo")
-	c.DebugLog(c.Settings.RepositoryCache)
-	if !strings.Contains(c.Settings.RepositoryCache, "charts/") {
-		chartDir := c.Settings.RepositoryCache + "/charts/"
-		output, _ := exec.Command("/bin/sh", "-c", "cp "+c.Settings.RepositoryCache+"/ngvoice* "+chartDir).Output()
-		c.DebugLog(string(output))
-	}
-	if err != nil {
-		c.DebugLog("Error in adding chart repo:", err)
-		return err
-	}
+
+	c.DebugLog("Successfully cloned repository from branch %s", branchName)
 	return nil
 }
 
