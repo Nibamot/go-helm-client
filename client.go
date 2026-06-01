@@ -1346,6 +1346,9 @@ func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.GenerateName = chartSpec.GenerateName
 	installOptions.NameTemplate = chartSpec.NameTemplate
 	installOptions.RollbackOnFailure = chartSpec.Atomic
+	installOptions.ForceConflicts = chartSpec.ForceConflicts
+	// v4 defaults ServerSideApply to true; keep CSA (v3 behaviour) unless caller opts in via ForceConflicts.
+	installOptions.ServerSideApply = chartSpec.ForceConflicts
 	installOptions.SkipCRDs = chartSpec.SkipCRDs
 	installOptions.SubNotes = chartSpec.SubNotes
 	installOptions.WaitForJobs = chartSpec.WaitForJobs
@@ -1367,6 +1370,12 @@ func mergeUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.DependencyUpdate = chartSpec.DependencyUpdate
 	upgradeOptions.DisableHooks = chartSpec.DisableHooks
 	upgradeOptions.ForceReplace = chartSpec.Force
+	upgradeOptions.ForceConflicts = chartSpec.ForceConflicts
+	// "auto" uses SSA only if the previous release used SSA (v3 releases used CSA).
+	// Override to "true" when ForceConflicts is set so SSA + force takes effect.
+	if chartSpec.ForceConflicts {
+		upgradeOptions.ServerSideApply = "true"
+	}
 	upgradeOptions.ResetValues = chartSpec.ResetValues
 	upgradeOptions.ReuseValues = chartSpec.ReuseValues
 	upgradeOptions.MaxHistory = chartSpec.MaxHistory
