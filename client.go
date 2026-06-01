@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -721,9 +722,31 @@ func (c *HelmClient) uninstallReleaseByName(name string) error {
 
 // lint lints a chart's values.
 func (c *HelmClient) lint(chartPath string, values map[string]interface{}) error {
+	lintPath := chartPath
+
+	// Helm v4 ContentCache stores charts with a .chart extension, but
+	// action.NewLint only recognises .tgz/.tar.gz archives or directories.
+	// Create a temp hard link (symlink as fallback) with a .tgz suffix.
+	if strings.HasSuffix(chartPath, ".chart") {
+		tmpDir, err := os.MkdirTemp("", "helm-lint-*")
+		if err != nil {
+			return fmt.Errorf("unable to create temp dir for linting: %w", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		base := strings.TrimSuffix(filepath.Base(chartPath), ".chart")
+		tmpPath := filepath.Join(tmpDir, base+".tgz")
+		if err := os.Link(chartPath, tmpPath); err != nil {
+			if err = os.Symlink(chartPath, tmpPath); err != nil {
+				return fmt.Errorf("unable to prepare chart for linting: %w", err)
+			}
+		}
+		lintPath = tmpPath
+	}
+
 	client := action.NewLint()
 
-	result := client.Run([]string{chartPath}, values)
+	result := client.Run([]string{lintPath}, values)
 
 	for _, err := range result.Errors {
 		c.DebugLog("Error %s", err)
