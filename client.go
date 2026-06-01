@@ -1328,6 +1328,8 @@ func mergeRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback
 	}
 	if chartSpec.Wait {
 		rollbackOptions.WaitStrategy = kube.LegacyStrategy
+	} else {
+		rollbackOptions.WaitStrategy = kube.HookOnlyStrategy
 	}
 }
 
@@ -1352,6 +1354,8 @@ func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	}
 	if chartSpec.Wait {
 		installOptions.WaitStrategy = kube.LegacyStrategy
+	} else {
+		installOptions.WaitStrategy = kube.HookOnlyStrategy
 	}
 }
 
@@ -1375,6 +1379,8 @@ func mergeUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	}
 	if chartSpec.Wait {
 		upgradeOptions.WaitStrategy = kube.LegacyStrategy
+	} else {
+		upgradeOptions.WaitStrategy = kube.HookOnlyStrategy
 	}
 }
 
@@ -1382,4 +1388,5 @@ func mergeUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 func mergeUninstallReleaseOptions(chartSpec *ChartSpec, uninstallReleaseOptions *action.Uninstall) {
 	uninstallReleaseOptions.DisableHooks = chartSpec.DisableHooks
 	uninstallReleaseOptions.Timeout = chartSpec.Timeout
+	uninstallReleaseOptions.WaitStrategy = kube.HookOnlyStrategy
 }
