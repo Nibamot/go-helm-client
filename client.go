@@ -162,6 +162,7 @@ func setEnvSettings(ppOptions **Options, settings *cli.EnvSettings) error {
 	}
 
 	settings.RepositoryCache = options.RepositoryCache
+	settings.ContentCache = options.RepositoryCache + "/content"
 	settings.RepositoryConfig = options.RepositoryConfig
 	settings.Debug = options.Debug
 
