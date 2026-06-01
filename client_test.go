@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 
-	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v4/pkg/chart/common"
 
-	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v4/pkg/action"
 
-	"helm.sh/helm/v3/pkg/repo"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -237,7 +237,7 @@ var _ RollBack = &customRollBack{}
 func (c customRollBack) RollbackRelease(spec *ChartSpec) error {
 	client := action.NewRollback(c.ActionConfig)
 
-	client.Force = true
+	client.ForceReplace = true
 
 	return client.Run(spec.ReleaseName)
 }
@@ -297,7 +297,7 @@ func ExampleHelmClient_TemplateChart() {
 	}
 
 	options := &HelmTemplateOptions{
-		KubeVersion: &chartutil.KubeVersion{
+		KubeVersion: &common.KubeVersion{
 			Version: "v1.23.10",
 			Major:   "1",
 			Minor:   "23",
