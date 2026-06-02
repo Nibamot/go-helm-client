@@ -174,6 +174,9 @@ type ChartSpec struct {
 	// Force indicates whether to force the operation.
 	// +optional
 	Force bool `json:"force,omitempty"`
+	// ForceConflicts causes server-side apply to force through field ownership conflicts.
+	// +optional
+	ForceConflicts bool `json:"forceConflicts,omitempty"`
 	// ResetValues indicates whether to reset the values.yaml file during installation.
 	// +optional
 	ResetValues bool `json:"resetValues,omitempty"`
