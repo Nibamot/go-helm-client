@@ -10,10 +10,11 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	helmclient "github.com/Nibamot/go-helm-client"
-	action "helm.sh/helm/v3/pkg/action"
-	chart "helm.sh/helm/v3/pkg/chart"
-	release "helm.sh/helm/v3/pkg/release"
-	repo "helm.sh/helm/v3/pkg/repo"
+	action "helm.sh/helm/v4/pkg/action"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	release "helm.sh/helm/v4/pkg/release/v1"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
+
 )
 
 // MockClient is a mock of Client interface.
@@ -203,7 +204,7 @@ func (mr *MockClientMockRecorder) RollbackRelease(spec interface{}) *gomock.Call
 }
 
 // SetDebugLog mocks base method.
-func (m *MockClient) SetDebugLog(debugLog action.DebugLog) {
+func (m *MockClient) SetDebugLog(debugLog helmclient.DebugLog) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetDebugLog", debugLog)
 }
@@ -213,6 +214,7 @@ func (mr *MockClientMockRecorder) SetDebugLog(debugLog interface{}) *gomock.Call
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDebugLog", reflect.TypeOf((*MockClient)(nil).SetDebugLog), debugLog)
 }
+
 
 // TemplateChart mocks base method.
 func (m *MockClient) TemplateChart(spec *helmclient.ChartSpec, options *helmclient.HelmTemplateOptions) ([]byte, error) {

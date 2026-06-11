@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -18,15 +19,17 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/pflag"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/downloader"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/registry"
-	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/action"
+	chartbase "helm.sh/helm/v4/pkg/chart"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	"helm.sh/helm/v4/pkg/chart/v2/loader"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/downloader"
+	"helm.sh/helm/v4/pkg/getter"
+	"helm.sh/helm/v4/pkg/kube"
+	"helm.sh/helm/v4/pkg/registry"
+	release "helm.sh/helm/v4/pkg/release/v1"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -103,7 +106,6 @@ func newClient(options *Options, clientGetter genericclioptions.RESTClientGetter
 		clientGetter,
 		settings.Namespace(),
 		os.Getenv("HELM_DRIVER"),
-		debugLog,
 	)
 	if err != nil {
 		return nil, err
@@ -161,6 +163,7 @@ func setEnvSettings(ppOptions **Options, settings *cli.EnvSettings) error {
 	}
 
 	settings.RepositoryCache = options.RepositoryCache
+	settings.ContentCache = options.RepositoryCache + "/content"
 	settings.RepositoryConfig = options.RepositoryConfig
 	settings.Debug = options.Debug
 
@@ -434,9 +437,14 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 				}
 			}
 
-			rel, err := client.RunWithContext(ctx, helmChart, values)
+			relRaw, err := client.RunWithContext(ctx, helmChart, values)
 			if err != nil {
+				rel, _ := relRaw.(*release.Release)
 				return rel, err
+			}
+			rel, ok := relRaw.(*release.Release)
+			if !ok {
+				return nil, fmt.Errorf("unexpected release type after install")
 			}
 
 			c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
@@ -504,9 +512,14 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 		}
 
-		rel, err := client.RunWithContext(ctx, helmChart, values)
+		relRaw, err := client.RunWithContext(ctx, helmChart, values)
 		if err != nil {
+			rel, _ := relRaw.(*release.Release)
 			return rel, err
+		}
+		rel, ok := relRaw.(*release.Release)
+		if !ok {
+			return nil, fmt.Errorf("unexpected release type after install")
 		}
 
 		c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
@@ -570,10 +583,10 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 				}
 			}
 
-			upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+			upgradedRaw, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
 			if upgradeErr != nil {
 				resultErr := upgradeErr
-				if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
+				if upgradedRaw == nil && opts != nil && opts.RollBack != nil {
 					rollbackErr := opts.RollBack.RollbackRelease(spec)
 					if rollbackErr != nil {
 						resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
@@ -591,6 +604,10 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 					}
 				}
 				return nil, resultErr
+			}
+			upgradedRelease, ok := upgradedRaw.(*release.Release)
+			if !ok {
+				return nil, fmt.Errorf("unexpected release type after upgrade")
 			}
 
 			c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
@@ -647,10 +664,10 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 		}
 
-		upgradedRelease, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+		upgradedRaw, upgradeErr := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
 		if upgradeErr != nil {
 			resultErr := upgradeErr
-			if upgradedRelease == nil && opts != nil && opts.RollBack != nil {
+			if upgradedRaw == nil && opts != nil && opts.RollBack != nil {
 				rollbackErr := opts.RollBack.RollbackRelease(spec)
 				if rollbackErr != nil {
 					resultErr = fmt.Errorf("release failed, rollback failed: release error: %w, rollback error: %v", upgradeErr, rollbackErr)
@@ -660,6 +677,10 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, opts *Generic
 			}
 			c.DebugLog("release upgrade failed: %s", resultErr)
 			return nil, resultErr
+		}
+		upgradedRelease, ok := upgradedRaw.(*release.Release)
+		if !ok {
+			return nil, fmt.Errorf("unexpected release type after upgrade")
 		}
 
 		c.DebugLog("release upgraded successfully: %s/%s-%s", upgradedRelease.Name, upgradedRelease.Chart.Metadata.Name, upgradedRelease.Chart.Metadata.Version)
@@ -701,9 +722,31 @@ func (c *HelmClient) uninstallReleaseByName(name string) error {
 
 // lint lints a chart's values.
 func (c *HelmClient) lint(chartPath string, values map[string]interface{}) error {
+	lintPath := chartPath
+
+	// Helm v4 ContentCache stores charts with a .chart extension, but
+	// action.NewLint only recognises .tgz/.tar.gz archives or directories.
+	// Create a temp hard link (symlink as fallback) with a .tgz suffix.
+	if strings.HasSuffix(chartPath, ".chart") {
+		tmpDir, err := os.MkdirTemp("", "helm-lint-*")
+		if err != nil {
+			return fmt.Errorf("unable to create temp dir for linting: %w", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		base := strings.TrimSuffix(filepath.Base(chartPath), ".chart")
+		tmpPath := filepath.Join(tmpDir, base+".tgz")
+		if err := os.Link(chartPath, tmpPath); err != nil {
+			if err = os.Symlink(chartPath, tmpPath); err != nil {
+				return fmt.Errorf("unable to prepare chart for linting: %w", err)
+			}
+		}
+		lintPath = tmpPath
+	}
+
 	client := action.NewLint()
 
-	result := client.Run([]string{chartPath}, values)
+	result := client.Run([]string{lintPath}, values)
 
 	for _, err := range result.Errors {
 		c.DebugLog("Error %s", err)
@@ -721,10 +764,9 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
 
-	client.DryRun = true
+	client.DryRunStrategy = action.DryRunClient
 	client.ReleaseName = spec.ReleaseName
 	client.Replace = true // Skip the name check
-	client.ClientOnly = true
 	client.IncludeCRDs = true
 
 	if options != nil {
@@ -768,22 +810,24 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	}
 
 	out := new(bytes.Buffer)
-	rel, err := client.Run(helmChart, values)
+	relRaw, err := client.Run(helmChart, values)
 
 	// We ignore a potential error here because, when the --debug flag was specified,
 	// we always want to print the YAML, even if it is not valid. The error is still returned afterwards.
-	if rel != nil {
-		var manifests bytes.Buffer
-		fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
-		if !client.DisableHooks {
-			for _, m := range rel.Hooks {
-				fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", m.Path, m.Manifest)
+	if relRaw != nil {
+		if rel, ok := relRaw.(*release.Release); ok {
+			var manifests bytes.Buffer
+			fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
+			if !client.DisableHooks {
+				for _, m := range rel.Hooks {
+					fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", m.Path, m.Manifest)
+				}
 			}
-		}
 
-		// if we have a list of files to render, then check that each of the
-		// provided files exists in the chart.
-		fmt.Fprintf(out, "%s", manifests.String())
+			// if we have a list of files to render, then check that each of the
+			// provided files exists in the chart.
+			fmt.Fprintf(out, "%s", manifests.String())
+		}
 	}
 
 	return out.Bytes(), err
@@ -807,7 +851,7 @@ func (c *HelmClient) LintChart(spec *ChartSpec) error {
 }
 
 // SetDebugLog set's a Helm client's DebugLog to the desired 'debugLog'.
-func (c *HelmClient) SetDebugLog(debugLog action.DebugLog) {
+func (c *HelmClient) SetDebugLog(debugLog DebugLog) {
 	c.DebugLog = debugLog
 }
 
@@ -818,7 +862,17 @@ func (c *HelmClient) ListReleaseHistory(name string, max int) ([]*release.Releas
 
 	client.Max = max
 
-	return client.Run(name)
+	raw, err := client.Run(name)
+	if err != nil {
+		return nil, err
+	}
+	releases := make([]*release.Release, 0, len(raw))
+	for _, r := range raw {
+		if rel, ok := r.(*release.Release); ok {
+			releases = append(releases, rel)
+		}
+	}
+	return releases, nil
 }
 
 // upgradeCRDs upgrades the CRDs of the provided chart.
@@ -1050,7 +1104,17 @@ func (c *HelmClient) listReleases(state action.ListStates) ([]*release.Release, 
 	listClient := action.NewList(c.ActionConfig)
 	listClient.StateMask = state
 
-	return listClient.Run()
+	raw, err := listClient.Run()
+	if err != nil {
+		return nil, err
+	}
+	releases := make([]*release.Release, 0, len(raw))
+	for _, r := range raw {
+		if rel, ok := r.(*release.Release); ok {
+			releases = append(releases, rel)
+		}
+	}
+	return releases, nil
 }
 
 // getReleaseValues returns the values for the provided release 'name'.
@@ -1067,7 +1131,15 @@ func (c *HelmClient) getReleaseValues(name string, allValues bool) (map[string]i
 func (c *HelmClient) getRelease(name string) (*release.Release, error) {
 	getReleaseClient := action.NewGet(c.ActionConfig)
 
-	return getReleaseClient.Run(name)
+	raw, err := getReleaseClient.Run(name)
+	if err != nil {
+		return nil, err
+	}
+	rel, ok := raw.(*release.Release)
+	if !ok {
+		return nil, fmt.Errorf("unexpected release type returned for %q", name)
+	}
+	return rel, nil
 }
 
 // rollbackRelease implicitly rolls back a release to the last revision.
@@ -1134,7 +1206,11 @@ func addInstallFromBranchOption(c *HelmClient, repoURL string, branchName string
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
 func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
 	if req := helmChart.Metadata.Dependencies; req != nil {
-		if err := action.CheckDependencies(helmChart, req); err != nil {
+		deps := make([]chartbase.Dependency, len(req))
+		for i, d := range req {
+			deps[i] = d
+		}
+		if err := action.CheckDependencies(helmChart, deps); err != nil {
 			if dependencyUpdate {
 				man := &downloader.Manager{
 					ChartPath:        chartPath,
@@ -1181,7 +1257,11 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 				c.DebugLog(c.Settings.RepositoryCache + " repocache")
 				helmc, _, _ := c.GetChart(strings.ReplaceAll(chartPath, helmChart.Metadata.Name, "")+dep.Name, chartPathOptions)
 				updateRecursiveDependencies(helmc, chartPathOptions, strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name), c, dependencyUpdate, spec)
-				if err := action.CheckDependencies(helmc, dependency); err != nil {
+				depsCast := make([]chartbase.Dependency, len(dependency))
+				for i, d := range dependency {
+					depsCast[i] = d
+				}
+				if err := action.CheckDependencies(helmc, depsCast); err != nil {
 					if dependencyUpdate {
 						man := &downloader.Manager{
 							ChartPath:        strings.ReplaceAll(chartPath, helmChart.Metadata.Name, dep.Name),
@@ -1238,14 +1318,19 @@ func updateRecursiveDependencies(helmChart *chart.Chart, chartPathOptions *actio
 // mergeRollbackOptions merges values of the provided chart to helm rollback options used by the client.
 func mergeRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback) {
 	rollbackOptions.DisableHooks = chartSpec.DisableHooks
-	rollbackOptions.DryRun = chartSpec.DryRun
 	rollbackOptions.Timeout = chartSpec.Timeout
 	rollbackOptions.CleanupOnFail = chartSpec.CleanupOnFail
-	rollbackOptions.Force = chartSpec.Force
+	rollbackOptions.ForceReplace = chartSpec.Force
 	rollbackOptions.MaxHistory = chartSpec.MaxHistory
-	rollbackOptions.Recreate = chartSpec.Recreate
-	rollbackOptions.Wait = chartSpec.Wait
 	rollbackOptions.WaitForJobs = chartSpec.WaitForJobs
+	if chartSpec.DryRun {
+		rollbackOptions.DryRunStrategy = action.DryRunClient
+	}
+	if chartSpec.Wait {
+		rollbackOptions.WaitStrategy = kube.LegacyStrategy
+	} else {
+		rollbackOptions.WaitStrategy = kube.HookOnlyStrategy
+	}
 }
 
 // mergeInstallOptions merges values of the provided chart to helm install options used by the client.
@@ -1253,7 +1338,6 @@ func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.CreateNamespace = chartSpec.CreateNamespace
 	installOptions.DisableHooks = chartSpec.DisableHooks
 	installOptions.Replace = chartSpec.Replace
-	installOptions.Wait = chartSpec.Wait
 	installOptions.DependencyUpdate = chartSpec.DependencyUpdate
 	installOptions.Timeout = chartSpec.Timeout
 	installOptions.Namespace = chartSpec.Namespace
@@ -1261,11 +1345,21 @@ func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.Version = chartSpec.Version
 	installOptions.GenerateName = chartSpec.GenerateName
 	installOptions.NameTemplate = chartSpec.NameTemplate
-	installOptions.Atomic = chartSpec.Atomic
+	installOptions.RollbackOnFailure = chartSpec.Atomic
+	installOptions.ForceConflicts = chartSpec.ForceConflicts
+	// v4 defaults ServerSideApply to true; keep CSA (v3 behaviour) unless caller opts in via ForceConflicts.
+	installOptions.ServerSideApply = chartSpec.ForceConflicts
 	installOptions.SkipCRDs = chartSpec.SkipCRDs
-	installOptions.DryRun = chartSpec.DryRun
 	installOptions.SubNotes = chartSpec.SubNotes
 	installOptions.WaitForJobs = chartSpec.WaitForJobs
+	if chartSpec.DryRun {
+		installOptions.DryRunStrategy = action.DryRunClient
+	}
+	if chartSpec.Wait {
+		installOptions.WaitStrategy = kube.LegacyStrategy
+	} else {
+		installOptions.WaitStrategy = kube.HookOnlyStrategy
+	}
 }
 
 // mergeUpgradeOptions merges values of the provided chart to helm upgrade options used by the client.
@@ -1273,23 +1367,35 @@ func mergeUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.Version = chartSpec.Version
 	upgradeOptions.Namespace = chartSpec.Namespace
 	upgradeOptions.Timeout = chartSpec.Timeout
-	upgradeOptions.Wait = chartSpec.Wait
 	upgradeOptions.DependencyUpdate = chartSpec.DependencyUpdate
 	upgradeOptions.DisableHooks = chartSpec.DisableHooks
-	upgradeOptions.Force = chartSpec.Force
+	upgradeOptions.ForceReplace = chartSpec.Force
+	upgradeOptions.ForceConflicts = chartSpec.ForceConflicts
+	// "auto" uses SSA only if the previous release used SSA (v3 releases used CSA).
+	// Override to "true" when ForceConflicts is set so SSA + force takes effect.
+	if chartSpec.ForceConflicts {
+		upgradeOptions.ServerSideApply = "true"
+	}
 	upgradeOptions.ResetValues = chartSpec.ResetValues
 	upgradeOptions.ReuseValues = chartSpec.ReuseValues
-	upgradeOptions.Recreate = chartSpec.Recreate
 	upgradeOptions.MaxHistory = chartSpec.MaxHistory
-	upgradeOptions.Atomic = chartSpec.Atomic
+	upgradeOptions.RollbackOnFailure = chartSpec.Atomic
 	upgradeOptions.CleanupOnFail = chartSpec.CleanupOnFail
-	upgradeOptions.DryRun = chartSpec.DryRun
 	upgradeOptions.SubNotes = chartSpec.SubNotes
 	upgradeOptions.WaitForJobs = chartSpec.WaitForJobs
+	if chartSpec.DryRun {
+		upgradeOptions.DryRunStrategy = action.DryRunClient
+	}
+	if chartSpec.Wait {
+		upgradeOptions.WaitStrategy = kube.LegacyStrategy
+	} else {
+		upgradeOptions.WaitStrategy = kube.HookOnlyStrategy
+	}
 }
 
 // mergeUninstallReleaseOptions merges values of the provided chart to helm uninstall options used by the client.
 func mergeUninstallReleaseOptions(chartSpec *ChartSpec, uninstallReleaseOptions *action.Uninstall) {
 	uninstallReleaseOptions.DisableHooks = chartSpec.DisableHooks
 	uninstallReleaseOptions.Timeout = chartSpec.Timeout
+	uninstallReleaseOptions.WaitStrategy = kube.HookOnlyStrategy
 }

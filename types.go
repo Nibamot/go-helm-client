@@ -4,16 +4,18 @@ import (
 	"io"
 	"time"
 
-	"helm.sh/helm/v3/pkg/postrender"
-
-	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v4/pkg/chart/common"
+	"helm.sh/helm/v4/pkg/getter"
+	"helm.sh/helm/v4/pkg/postrenderer"
 	"k8s.io/client-go/rest"
 
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/cli"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
+
+// DebugLog defines the function signature for debug logging.
+type DebugLog func(format string, v ...interface{})
 
 // Type Guard asserting that HelmClient satisfies the HelmClient interface.
 var _ Client = &HelmClient{}
@@ -38,7 +40,7 @@ type Options struct {
 	RepositoryCache  string
 	Debug            bool
 	Linting          bool
-	DebugLog         action.DebugLog
+	DebugLog         DebugLog
 	RegistryConfig   string
 	Output           io.Writer
 }
@@ -83,18 +85,18 @@ type HelmClient struct {
 	ActionConfig *action.Configuration
 	linting      bool
 	output       io.Writer
-	DebugLog     action.DebugLog
+	DebugLog     DebugLog
 }
 
 type GenericHelmOptions struct {
-	PostRenderer postrender.PostRenderer
+	PostRenderer postrenderer.PostRenderer
 	RollBack     RollBack
 }
 
 type HelmTemplateOptions struct {
-	KubeVersion *chartutil.KubeVersion
+	KubeVersion *common.KubeVersion
 	// APIVersions defined here will be appended to the default list helm provides
-	APIVersions chartutil.VersionSet
+	APIVersions common.VersionSet
 }
 
 //go:generate controller-gen object paths="./..." output:dir=.
@@ -172,6 +174,9 @@ type ChartSpec struct {
 	// Force indicates whether to force the operation.
 	// +optional
 	Force bool `json:"force,omitempty"`
+	// ForceConflicts causes server-side apply to force through field ownership conflicts.
+	// +optional
+	ForceConflicts bool `json:"forceConflicts,omitempty"`
 	// ResetValues indicates whether to reset the values.yaml file during installation.
 	// +optional
 	ResetValues bool `json:"resetValues,omitempty"`
